@@ -5,9 +5,8 @@ import (
 	"log"
 	"strings"
 
-	"github.com/biohuns/discord-server-tool-bot/gcp"
-
 	"github.com/biohuns/discord-server-tool-bot/config"
+	"github.com/biohuns/discord-server-tool-bot/gcp"
 	"github.com/bwmarrin/discordgo"
 )
 
