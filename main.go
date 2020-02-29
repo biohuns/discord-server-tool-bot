@@ -5,9 +5,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/biohuns/discord-server-tool-bot/config"
-	"github.com/biohuns/discord-server-tool-bot/discord"
-	"github.com/biohuns/discord-server-tool-bot/gcp"
+	"github.com/biohuns/discord-servertool/config"
+	"github.com/biohuns/discord-servertool/discord"
+	"github.com/biohuns/discord-servertool/gcp"
 )
 
 var (
