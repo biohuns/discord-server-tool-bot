@@ -22,7 +22,7 @@ type Config struct {
 var c = new(Config)
 
 func Init(filePath string) error {
-	b, err := ioutil.ReadFile("config.json")
+	b, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return err
 	}
