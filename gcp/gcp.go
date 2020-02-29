@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/biohuns/discord-server-tool-bot/config"
-
 	"google.golang.org/api/compute/v1"
 )
 
