@@ -3,7 +3,7 @@ package gcp
 import (
 	"context"
 
-	"github.com/biohuns/discord-server-tool-bot/config"
+	"github.com/biohuns/discord-servertool/config"
 	"google.golang.org/api/compute/v1"
 )
 
