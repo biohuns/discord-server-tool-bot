@@ -1,0 +1,13 @@
+{
+  "discord": {
+    "token": "",
+    "channel_id": "",
+    "bot_id": "",
+    "bot_name": ""
+  },
+  "gcp": {
+    "project_id": "",
+    "zone": "",
+    "instance_name": ""
+  }
+}
