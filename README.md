@@ -1,2 +1,3 @@
-# discord-server-tool-bot
-Discord でサーバー起動するbot
+# discord-servertool
+
+Discord でサーバーを操作する Bot
