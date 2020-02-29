@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 
 	"github.com/biohuns/discord-server-tool-bot/config"
@@ -13,6 +14,8 @@ var (
 )
 
 func main() {
+	configPath := ""
+	flag.StringVar(&configPath, "config", "config.json", "config file path")
 	if err := config.Init("config.json"); err != nil {
 		log.Fatalln(err)
 	}
