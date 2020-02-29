@@ -40,7 +40,7 @@ func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	c, err := s.State.Channel(m.ChannelID) //チャンネル取得
+	c, err := s.State.Channel(m.ChannelID)
 	if err != nil {
 		log.Println("error getting channel: ", err)
 		return
@@ -85,7 +85,6 @@ func command(name string) string {
 	return fmt.Sprintf("<@!%s> %s", config.Get().Discord.BotID, name)
 }
 
-//メッセージを送信する関数
 func sendMessage(s *discordgo.Session, c *discordgo.Channel, msg string) {
 	_, err := s.ChannelMessageSend(c.ID, msg)
 

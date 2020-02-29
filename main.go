@@ -16,14 +16,13 @@ var (
 
 func main() {
 	configPath := flag.String("config", "config.json", "config file path")
-	credential := flag.String("credential", "", "credential file path")
 	flag.Parse()
 
 	if err := config.Init(*configPath); err != nil {
 		log.Fatalln(err)
 	}
 
-	if err := os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", *credential); err != nil {
+	if err := os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", config.Get().GCP.Credential); err != nil {
 		log.Fatalln(err)
 	}
 
@@ -36,6 +35,6 @@ func main() {
 	}
 
 	log.Println("Listening...")
-	<-stop //プログラムが終了しないようロック
+	<-stop
 	return
 }

@@ -13,6 +13,7 @@ type Config struct {
 		BotName   string `json:"bot_name"`
 	}
 	GCP struct {
+		Credential   string `json:"credential"`
 		ProjectID    string `json:"project_id"`
 		Zone         string `json:"zone"`
 		InstanceName string `json:"instance_name"`
