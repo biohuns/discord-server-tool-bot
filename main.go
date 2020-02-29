@@ -17,7 +17,7 @@ func main() {
 	configPath := ""
 	flag.StringVar(&configPath, "config", "config.json", "config file path")
 	flag.Parse()
-	if err := config.Init("config.json"); err != nil {
+	if err := config.Init(configPath); err != nil {
 		log.Fatalln(err)
 	}
 
