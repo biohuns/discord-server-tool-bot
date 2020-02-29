@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"log"
+	"os"
 
 	"github.com/biohuns/discord-server-tool-bot/config"
 	"github.com/biohuns/discord-server-tool-bot/discord"
@@ -15,8 +16,14 @@ var (
 
 func main() {
 	configPath := flag.String("config", "config.json", "config file path")
+	credential := flag.String("credential", "", "credential file path")
 	flag.Parse()
+
 	if err := config.Init(*configPath); err != nil {
+		log.Fatalln(err)
+	}
+
+	if err := os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", *credential); err != nil {
 		log.Fatalln(err)
 	}
 
