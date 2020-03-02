@@ -36,5 +36,8 @@ func Init(filePath string) error {
 }
 
 func Get() Config {
+	if c == nil {
+		return Config{}
+	}
 	return *c
 }
