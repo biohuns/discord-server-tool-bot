@@ -2,39 +2,53 @@ package main
 
 import (
 	"flag"
-	"log"
 	"os"
 
 	"github.com/biohuns/discord-servertool/config"
 	"github.com/biohuns/discord-servertool/discord"
 	"github.com/biohuns/discord-servertool/gcp"
+	"github.com/biohuns/discord-servertool/logger"
 )
 
 var (
 	stop = make(chan bool)
 )
 
-func main() {
-	configPath := flag.String("config", "config.json", "config file path")
+func Init() {
+	configPath := flag.String(
+		"config",
+		"config.json",
+		"config file path",
+	)
 	flag.Parse()
 
-	if err := config.Init(*configPath); err != nil {
-		log.Fatalln(err)
+	if err := logger.Init(); err != nil {
+		logger.Fatalf("logger init error: ", err)
 	}
 
-	if err := os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", config.Get().GCP.Credential); err != nil {
-		log.Fatalln(err)
+	if err := config.Init(*configPath); err != nil {
+		logger.Fatalf("config init error: %s", err)
+	}
+
+	if err := os.Setenv(
+		"GOOGLE_APPLICATION_CREDENTIALS",
+		config.Get().GCP.Credential,
+	); err != nil {
+		logger.Fatalf("set env error: %s", err)
 	}
 
 	if err := gcp.Init(); err != nil {
-		log.Fatalln(err)
+		logger.Fatalf("gcp init error: %s", err)
 	}
 
 	if err := discord.Init(); err != nil {
-		log.Fatalln(err)
+		logger.Fatalf("discord init error: %s", err)
 	}
 
-	log.Println("Listening...")
+	logger.Info("listening...")
 	<-stop
-	return
+}
+
+func main() {
+	Init()
 }

@@ -2,12 +2,26 @@ package discord
 
 import (
 	"fmt"
-	"log"
 	"strings"
+
+	"github.com/biohuns/discord-servertool/logger"
+	"google.golang.org/api/compute/v1"
 
 	"github.com/biohuns/discord-servertool/config"
 	"github.com/biohuns/discord-servertool/gcp"
 	"github.com/bwmarrin/discordgo"
+)
+
+const (
+	start = "```STARTING...```"
+	stop  = "```STOPPING...```"
+	help  = "```" + `
+HELP
+	start: サーバーを起動する
+	stop: サーバーを停止する
+	status : サーバーの状態を確認する
+` + "```"
+	unknown = "```UNKNOWN COMMAND```"
 )
 
 func Init() error {
@@ -28,68 +42,81 @@ func Init() error {
 
 func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.ID == config.Get().Discord.BotID {
+		logger.Debug(logMessage(m, "bot's own message"))
 		return
 	}
+
 	if m.ChannelID != config.Get().Discord.ChannelID {
-		log.Println("other channel message")
+		logger.Debug(logMessage(m, "invalid channel: "+m.ChannelID))
 		return
 	}
 
-	if !strings.HasPrefix(m.Content, command("")) {
-		log.Println("non-command message")
+	prefix := fmt.Sprintf("<@!%s>", config.Get().Discord.BotID)
+	command := strings.TrimSpace(strings.Replace(m.Content, prefix, "", 1))
+	if !strings.HasPrefix(m.Content, prefix) {
+		logger.Warn(logMessage(m, "not command: "+command))
 		return
 	}
 
-	c, err := s.State.Channel(m.ChannelID)
-	if err != nil {
-		log.Println("error getting channel: ", err)
-		return
-	}
-
-	log.Printf("%s > %s\n", m.Author.Username,
-		strings.ReplaceAll(
-			m.Content,
-			command(""),
-			fmt.Sprintf("@%s ", config.Get().Discord.BotName),
-		),
-	)
-
-	switch {
-	case strings.HasPrefix(m.Content, command("start")):
+	switch command {
+	case "start":
 		if err := gcp.StartInstance(); err != nil {
-			sendMessage(s, c, fmt.Sprintf("```\nSTART ERROR:\n%s\n```", err))
+			sendError(m, s, command, err)
+			return
 		}
-		sendMessage(s, c, "```\nSTARTING...\n```")
-	case strings.HasPrefix(m.Content, command("stop")):
+		send(m, s, start)
+	case "stop":
 		if err := gcp.StopInstance(); err != nil {
-			sendMessage(s, c, fmt.Sprintf("```\nSTOP ERROR:\n%s\n```", err))
+			sendError(m, s, command, err)
+			return
 		}
-		sendMessage(s, c, "```\nSTOPPING...\n```")
-	case strings.HasPrefix(m.Content, command("status")):
-		list, err := gcp.ListInstances()
+		send(m, s, stop)
+	case "status":
+		instances, err := gcp.ListInstances()
 		if err != nil {
-			sendMessage(s, c, fmt.Sprintf("```\nSTATUS ERROR:\n%s\n```", err))
+			sendError(m, s, command, err)
+			return
 		}
-		text := "```\nSTATUS"
-		for _, instance := range list.Items {
-			text += fmt.Sprintf("\n%s: %s", instance.Name, instance.Status)
-		}
-		text += "\n```"
-		sendMessage(s, c, text)
+		send(m, s, status(instances.Items))
+	case "help":
+		send(m, s, help)
 	default:
-		sendMessage(s, c, "```\nHELP\n\tstart: サーバーを起動する\n\tstop: サーバーを停止する\n\tstatus: サーバーの状態を確認する\n```")
+		send(m, s, unknown+help)
 	}
 }
 
-func command(name string) string {
-	return fmt.Sprintf("<@!%s> %s", config.Get().Discord.BotID, name)
+func status(items []*compute.Instance) string {
+	text := "```STATUS"
+	for _, instance := range items {
+		text += fmt.Sprintf("\n%s: %s", instance.Name, instance.Status)
+	}
+	text += "```"
+	return text
 }
 
-func sendMessage(s *discordgo.Session, c *discordgo.Channel, msg string) {
-	_, err := s.ChannelMessageSend(c.ID, msg)
-
-	log.Println(">>> " + msg)
-	if err != nil {
-		log.Println("error sending message: ", err)
+func send(m *discordgo.MessageCreate, s *discordgo.Session, msg string) {
+	if _, err := s.ChannelMessageSend(m.ChannelID, msg); err != nil {
+		logMessage(m, "failed to send message")
 	}
+}
+
+func sendError(
+	m *discordgo.MessageCreate,
+	s *discordgo.Session,
+	com string,
+	err error,
+) {
+	logger.Error(
+		logMessage(m, fmt.Sprintf("failed to execute %s: %s", com, err)),
+	)
+	send(m, s, fmt.Sprintf("```%s ERROR```", strings.ToUpper(com)))
+}
+
+func logMessage(m *discordgo.MessageCreate, message string) string {
+	return fmt.Sprintf(
+		"(%s) %s >>> %s",
+		message,
+		m.Author.Username,
+		strings.ReplaceAll(m.Content, "\n", "\\n"),
+	)
 }

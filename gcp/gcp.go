@@ -7,18 +7,11 @@ import (
 	"google.golang.org/api/compute/v1"
 )
 
-type (
-	InstanceList compute.InstanceList
-)
+var instanceService *compute.InstancesService
 
-var (
-	service         *compute.Service
-	instanceService *compute.InstancesService
-)
-
-func Init() (err error) {
+func Init() error {
 	ctx := context.Background()
-	service, err = compute.NewService(ctx)
+	service, err := compute.NewService(ctx)
 	if err != nil {
 		return err
 	}
@@ -31,7 +24,7 @@ func StartInstance() error {
 	_, err := instanceService.Start(
 		config.Get().GCP.ProjectID,
 		config.Get().GCP.Zone,
-		"ark-server",
+		config.Get().GCP.InstanceName,
 	).Do()
 	if err != nil {
 		return err
@@ -44,7 +37,7 @@ func StopInstance() error {
 	_, err := instanceService.Stop(
 		config.Get().GCP.ProjectID,
 		config.Get().GCP.Zone,
-		"ark-server",
+		config.Get().GCP.InstanceName,
 	).Do()
 	if err != nil {
 		return err
