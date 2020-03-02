@@ -1,4 +1,4 @@
-APP_NAME := discord_servertool
+APP_NAME := discord-servertool
 
 default: build
 
