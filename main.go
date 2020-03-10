@@ -2,19 +2,18 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
+	"os/signal"
 
 	"github.com/biohuns/discord-servertool/config"
 	"github.com/biohuns/discord-servertool/discord"
 	"github.com/biohuns/discord-servertool/gcp"
 	"github.com/biohuns/discord-servertool/logger"
+	"golang.org/x/xerrors"
 )
 
-var (
-	stop = make(chan bool)
-)
-
-func Init() {
+func initialize() error {
 	configPath := flag.String(
 		"config",
 		"config.json",
@@ -22,33 +21,32 @@ func Init() {
 	)
 	flag.Parse()
 
-	if err := logger.Init(); err != nil {
-		logger.Fatalf("logger init error: ", err)
-	}
-
 	if err := config.Init(*configPath); err != nil {
-		logger.Fatalf("config init error: %s", err)
-	}
-
-	if err := os.Setenv(
-		"GOOGLE_APPLICATION_CREDENTIALS",
-		config.Get().GCP.Credential,
-	); err != nil {
-		logger.Fatalf("set env error: %s", err)
+		return xerrors.Errorf("config error: %w", err)
 	}
 
 	if err := gcp.Init(); err != nil {
-		logger.Fatalf("gcp init error: %s", err)
+		return xerrors.Errorf("GCP init error: %w", err)
 	}
 
-	if err := discord.Init(); err != nil {
-		logger.Fatalf("discord init error: %s", err)
+	if err := discord.Start(); err != nil {
+		return xerrors.Errorf("Discord init error: %w", err)
 	}
 
-	logger.Info("listening...")
-	<-stop
+	return nil
 }
 
 func main() {
-	Init()
+	if err := initialize(); err != nil {
+		logger.Error(fmt.Sprintf("%+v", err))
+		os.Exit(1)
+	}
+
+	logger.Info("listening...")
+
+	exit := make(chan os.Signal, 1)
+	signal.Notify(exit, os.Interrupt)
+	<-exit
+	logger.Info("terminating...")
+	os.Exit(0)
 }

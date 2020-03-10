@@ -21,3 +21,7 @@ endif
 .PHONY: clean
 clean:
 	go clean -x
+
+.PHONY: help
+help:
+	@cat Makefile
