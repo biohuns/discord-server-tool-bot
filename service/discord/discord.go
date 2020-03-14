@@ -3,6 +3,7 @@ package discord
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/biohuns/discord-servertool/entity"
 	"github.com/biohuns/discord-servertool/logger"
@@ -18,22 +19,43 @@ type Service struct {
 	botID     string
 }
 
-// NewService サービス生成
-func NewService(cs entity.ConfigService, is entity.InstanceService) (entity.MessageService, error) {
-	session, err := discordgo.New()
-	if err != nil {
-		return nil, xerrors.Errorf("create session error: %w", err)
+var (
+	serviceInstance *Service
+	once            sync.Once
+)
+
+// ProvideService サービス返却
+func ProvideService(cs entity.ConfigService, is entity.InstanceService) (entity.MessageService, error) {
+	var err error
+
+	once.Do(func() {
+		var session *discordgo.Session
+		session, err = discordgo.New()
+		if err != nil {
+			err = xerrors.Errorf("create session error: %w", err)
+			return
+		}
+
+		token, channelID, botID := cs.GetDiscordConfig()
+		session.Token = fmt.Sprintf("Bot %s", token)
+
+		serviceInstance = &Service{
+			is:        is,
+			session:   session,
+			channelID: channelID,
+			botID:     botID,
+		}
+	})
+
+	if serviceInstance == nil {
+		err = xerrors.New("service is not provided")
 	}
 
-	token, channelID, botID := cs.GetDiscordConfig()
-	session.Token = fmt.Sprintf("Bot %s", token)
+	if err != nil {
+		return nil, xerrors.Errorf("provide service error: %w", err)
+	}
 
-	return &Service{
-		is:        is,
-		session:   session,
-		channelID: channelID,
-		botID:     botID,
-	}, nil
+	return serviceInstance, nil
 }
 
 // Start ハンドラを追加して監視を開始

@@ -3,6 +3,7 @@ package gcp
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/biohuns/discord-servertool/entity"
 	"golang.org/x/xerrors"
@@ -38,22 +39,43 @@ type (
 	status string
 )
 
-// NewService サービス生成
-func NewService(cs entity.ConfigService) (entity.InstanceService, error) {
-	ctx := context.Background()
-	svc, err := compute.NewService(ctx)
-	if err != nil {
-		return nil, xerrors.Errorf("gcp error: %w", err)
+var (
+	serviceInstance *Service
+	once            sync.Once
+)
+
+// ProvideService サービス返却
+func ProvideService(cs entity.ConfigService) (entity.InstanceService, error) {
+	var err error
+
+	once.Do(func() {
+		ctx := context.Background()
+		var svc *compute.Service
+		svc, err = compute.NewService(ctx)
+		if err != nil {
+			err = xerrors.Errorf("create service error: %w", err)
+			return
+		}
+
+		projectID, zone, instanceName := cs.GetGCPConfig()
+
+		serviceInstance = &Service{
+			instance:     compute.NewInstancesService(svc),
+			projectID:    projectID,
+			zone:         zone,
+			instanceName: instanceName,
+		}
+	})
+
+	if serviceInstance == nil {
+		err = xerrors.New("service is not provided")
 	}
 
-	projectID, zone, instanceName := cs.GetGCPConfig()
+	if err != nil {
+		return nil, xerrors.Errorf("provide service error: %w", err)
+	}
 
-	return &Service{
-		instance:     compute.NewInstancesService(svc),
-		projectID:    projectID,
-		zone:         zone,
-		instanceName: instanceName,
-	}, nil
+	return serviceInstance, nil
 }
 
 // Start インスタンス開始
