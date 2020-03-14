@@ -1,4 +1,4 @@
-package handler
+package discord
 
 import (
 	"fmt"
@@ -9,25 +9,21 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// NewHandler ハンドラ生成
-func NewHandler(
-	is entity.InstanceService,
-	ms entity.MessageService,
-) func(s *discordgo.Session, m *discordgo.MessageCreate) {
+func newHandler(service *Service) func(s *discordgo.Session, m *discordgo.MessageCreate) {
 	return func(s *discordgo.Session, m *discordgo.MessageCreate) {
-		if !ms.IsCommand(m) {
+		if !service.isCommand(m) {
 			return
 		}
 
-		cmd := ms.GetCommand(m)
+		cmd := service.getCommand(m)
 
-		msg, err := execute(is, cmd)
+		msg, err := execute(service.is, cmd)
 		if err != nil {
-			ms.SendTo(m.Author.ID, fmt.Sprintf("```ERROR: %s``````%+v```", cmd, err))
+			service.sendTo(m.Author.ID, fmt.Sprintf("```ERROR: %s``````%+v```", cmd, err))
 			logger.Error(fmt.Sprintf("%+v", err))
 		}
 
-		ms.SendTo(m.Author.ID, msg)
+		service.sendTo(m.Author.ID, msg)
 	}
 }
 

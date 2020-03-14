@@ -10,16 +10,16 @@ import (
 	"golang.org/x/xerrors"
 )
 
-type (
-	service struct {
-		session   *discordgo.Session
-		channelID string
-		botID     string
-	}
-)
+// Service Discordサービス
+type Service struct {
+	is        entity.InstanceService
+	session   *discordgo.Session
+	channelID string
+	botID     string
+}
 
 // NewService サービス生成
-func NewService(cs entity.ConfigService) (entity.MessageService, error) {
+func NewService(cs entity.ConfigService, is entity.InstanceService) (entity.MessageService, error) {
 	session, err := discordgo.New()
 	if err != nil {
 		return nil, xerrors.Errorf("create session error: %w", err)
@@ -28,7 +28,8 @@ func NewService(cs entity.ConfigService) (entity.MessageService, error) {
 	token, channelID, botID := cs.GetDiscordConfig()
 	session.Token = fmt.Sprintf("Bot %s", token)
 
-	return &service{
+	return &Service{
+		is:        is,
 		session:   session,
 		channelID: channelID,
 		botID:     botID,
@@ -36,14 +37,8 @@ func NewService(cs entity.ConfigService) (entity.MessageService, error) {
 }
 
 // Start ハンドラを追加して監視を開始
-func (s *service) Start(handler ...interface{}) error {
-	for _, h := range handler {
-		handlerFunc, ok := h.(func(s *discordgo.Session, m *discordgo.MessageCreate))
-		if !ok {
-			return xerrors.New("handler func convert err")
-		}
-		s.session.AddHandler(handlerFunc)
-	}
+func (s *Service) Start() error {
+	s.session.AddHandler(newHandler(s))
 
 	if err := s.session.Open(); err != nil {
 		return xerrors.Errorf("session open error: %w", err)
@@ -54,8 +49,7 @@ func (s *service) Start(handler ...interface{}) error {
 	return nil
 }
 
-// Send メッセージ送信
-func (s *service) Send(msg string) {
+func (s *Service) send(msg string) {
 	if _, err := s.session.ChannelMessageSend(s.channelID, msg); err != nil {
 		logger.Error(
 			fmt.Sprintf("%+v", xerrors.Errorf("message send error: %w", err)),
@@ -63,13 +57,11 @@ func (s *service) Send(msg string) {
 	}
 }
 
-// SendTo メッセージ送信（対象を取る）
-func (s *service) SendTo(userID, msg string) {
-	s.Send(fmt.Sprintf("<@!%s>\n%s", userID, msg))
+func (s *Service) sendTo(userID, msg string) {
+	s.send(fmt.Sprintf("<@!%s>\n%s", userID, msg))
 }
 
-// GetCommand メッセージからコマンド部分を抽出
-func (s *service) GetCommand(m *discordgo.MessageCreate) string {
+func (s *Service) getCommand(m *discordgo.MessageCreate) string {
 	cmd := strings.TrimSpace(m.Content)
 
 	if strings.HasPrefix(cmd, fmt.Sprintf("<@%s>", s.botID)) {
@@ -83,11 +75,10 @@ func (s *service) GetCommand(m *discordgo.MessageCreate) string {
 	return strings.TrimSpace(cmd)
 }
 
-// IsCommand 自身に向けられたコマンドであるか
-func (s *service) IsCommand(m *discordgo.MessageCreate) bool {
+func (s *Service) isCommand(m *discordgo.MessageCreate) bool {
 	return s.botID != m.Author.ID &&
 		m.ChannelID == s.channelID &&
 		(strings.HasPrefix(m.Content, fmt.Sprintf("<@%s>", s.botID)) ||
 			strings.HasPrefix(m.Content, fmt.Sprintf("<@!%s>", s.botID))) &&
-		s.GetCommand(m) != ""
+		s.getCommand(m) != ""
 }

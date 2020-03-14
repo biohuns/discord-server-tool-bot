@@ -13,7 +13,8 @@ import (
 const googleCredentialKey = "GOOGLE_APPLICATION_CREDENTIALS"
 
 type (
-	service struct {
+	// Service 設定サービス
+	Service struct {
 		c *config
 	}
 
@@ -49,11 +50,11 @@ func NewService() (entity.ConfigService, error) {
 		}
 	}
 
-	return &service{c: c}, nil
+	return &Service{c: c}, nil
 }
 
 // GetDiscordConfig Discordの設定を取得
-func (s service) GetDiscordConfig() (token, channelID, botID string) {
+func (s *Service) GetDiscordConfig() (token, channelID, botID string) {
 	if s.c == nil {
 		return "", "", ""
 	}
@@ -61,7 +62,7 @@ func (s service) GetDiscordConfig() (token, channelID, botID string) {
 }
 
 // GetGCPConfig GCPの設定を取得
-func (s service) GetGCPConfig() (projectID, zone, instanceName string) {
+func (s *Service) GetGCPConfig() (projectID, zone, instanceName string) {
 	if s.c == nil {
 		return "", "", ""
 	}

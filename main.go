@@ -4,10 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/biohuns/discord-servertool/service/config"
-
-	"github.com/biohuns/discord-servertool/handler"
 	"github.com/biohuns/discord-servertool/logger"
+	"github.com/biohuns/discord-servertool/service/config"
 	"github.com/biohuns/discord-servertool/service/discord"
 	"github.com/biohuns/discord-servertool/service/gcp"
 	"github.com/google/wire"
@@ -31,24 +29,18 @@ func main() {
 }
 
 func listenStart() error {
-	cs, err := config.NewService()
+	ms, err := initializeMessageService()
 	if err != nil {
-		return xerrors.Errorf("config error: %w", err)
+		return xerrors.Errorf("listen error: %w", err)
 	}
 
-	gs, err := gcp.NewService(cs)
-	if err != nil {
-		return xerrors.Errorf("gcp init error: %w", err)
+	if err := ms.Start(); err != nil {
+		return xerrors.Errorf("listen error: %w", err)
 	}
 
-	ds, err := discord.NewService(cs)
-	if err != nil {
-		return xerrors.Errorf("discord init error: %w", err)
-	}
-
-	return ds.Start(handler.NewHandler(gs, ds))
+	return nil
 }
 
 func batchStart() error {
-	return nil
+	panic("implement here")
 }
