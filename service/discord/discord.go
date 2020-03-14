@@ -4,20 +4,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/biohuns/discord-servertool/entity"
 	"github.com/biohuns/discord-servertool/logger"
 	"github.com/bwmarrin/discordgo"
 	"golang.org/x/xerrors"
 )
 
 type (
-	// Service Discord サービス
-	Service interface {
-		Start(handler ...interface{}) error
-		Send(msg string)
-		GetCommand(m *discordgo.MessageCreate) string
-		IsCommand(m *discordgo.MessageCreate) bool
-	}
-
 	service struct {
 		session   *discordgo.Session
 		channelID string
@@ -26,12 +19,13 @@ type (
 )
 
 // NewService サービス生成
-func NewService(token, channelID, botID string) (Service, error) {
+func NewService(cs entity.ConfigService) (entity.MessageService, error) {
 	session, err := discordgo.New()
 	if err != nil {
 		return nil, xerrors.Errorf("create session error: %w", err)
 	}
 
+	token, channelID, botID := cs.GetDiscordConfig()
 	session.Token = fmt.Sprintf("Bot %s", token)
 
 	return &service{
@@ -67,6 +61,11 @@ func (s *service) Send(msg string) {
 			fmt.Sprintf("%+v", xerrors.Errorf("message send error: %w", err)),
 		)
 	}
+}
+
+// SendTo メッセージ送信（対象を取る）
+func (s *service) SendTo(userID, msg string) {
+	s.Send(fmt.Sprintf("<@!%s>\n%s", userID, msg))
 }
 
 // GetCommand メッセージからコマンド部分を抽出
