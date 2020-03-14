@@ -22,7 +22,8 @@ const (
 )
 
 type (
-	service struct {
+	// Service GCPサービス
+	Service struct {
 		instance     *compute.InstancesService
 		projectID    string
 		zone         string
@@ -47,7 +48,7 @@ func NewService(cs entity.ConfigService) (entity.InstanceService, error) {
 
 	projectID, zone, instanceName := cs.GetGCPConfig()
 
-	return &service{
+	return &Service{
 		instance:     compute.NewInstancesService(svc),
 		projectID:    projectID,
 		zone:         zone,
@@ -56,7 +57,7 @@ func NewService(cs entity.ConfigService) (entity.InstanceService, error) {
 }
 
 // Start インスタンス開始
-func (s *service) Start() error {
+func (s *Service) Start() error {
 	_, err := s.instance.Start(s.projectID, s.zone, s.instanceName).Do()
 	if err != nil {
 		return xerrors.Errorf("gcp error: %w", err)
@@ -66,7 +67,7 @@ func (s *service) Start() error {
 }
 
 // Stop インスタンス停止
-func (s *service) Stop() error {
+func (s *Service) Stop() error {
 	_, err := s.instance.Stop(s.projectID, s.zone, s.instanceName).Do()
 	if err != nil {
 		return xerrors.Errorf("gcp error: %w", err)
@@ -76,7 +77,7 @@ func (s *service) Stop() error {
 }
 
 // Status インスタンス状態確認
-func (s *service) Status() (entity.InstanceInfo, error) {
+func (s *Service) Status() (entity.InstanceInfo, error) {
 	i, err := s.instance.Get(s.projectID, s.zone, s.instanceName).Do()
 	if err != nil {
 		return nil, xerrors.Errorf("gcp error: %w", err)
