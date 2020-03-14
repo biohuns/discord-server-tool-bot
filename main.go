@@ -6,43 +6,42 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/biohuns/discord-servertool/adapter/discord"
+	"github.com/biohuns/discord-servertool/adapter/gcp"
 	"github.com/biohuns/discord-servertool/config"
-	"github.com/biohuns/discord-servertool/discord"
-	"github.com/biohuns/discord-servertool/gcp"
+	"github.com/biohuns/discord-servertool/handler"
 	"github.com/biohuns/discord-servertool/logger"
 	"golang.org/x/xerrors"
 )
 
-func initialize() error {
-	configPath := flag.String(
-		"config",
-		"config.json",
-		"config file path",
-	)
+func start() error {
+	configPath := flag.String("config", "config.json", "config file path")
 	flag.Parse()
 
-	if err := config.Init(*configPath); err != nil {
+	c, err := config.Open(*configPath)
+	if err != nil {
 		return xerrors.Errorf("config error: %w", err)
 	}
 
-	if err := gcp.Init(); err != nil {
-		return xerrors.Errorf("GCP init error: %w", err)
+	gs, err := gcp.NewService(c.GCPProjectID, c.GCPZone, c.GCPInstanceName)
+	if err != nil {
+		return xerrors.Errorf("gcp init error: %w", err)
 	}
 
-	if err := discord.Start(); err != nil {
+	ds, err := discord.NewService(c.DiscordToken, c.DiscordChannelID, c.DiscordBotID)
+	if err != nil {
 		return xerrors.Errorf("Discord init error: %w", err)
 	}
 
-	return nil
+	handlerFunc := handler.NewHandler(gs, ds)
+	return ds.Start(handlerFunc)
 }
 
 func main() {
-	if err := initialize(); err != nil {
+	if err := start(); err != nil {
 		logger.Error(fmt.Sprintf("%+v", err))
 		os.Exit(1)
 	}
-
-	logger.Info("listening...")
 
 	exit := make(chan os.Signal, 1)
 	signal.Notify(exit, os.Interrupt)

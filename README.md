@@ -1,3 +1,3 @@
 # discord-servertool
 
-Discord でサーバーを操作する Bot
+GCE + Steam Dedicated Server を Discord で管理する Bot
