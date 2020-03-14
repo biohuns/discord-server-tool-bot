@@ -4,6 +4,7 @@ default: build
 
 .PHONY: build
 build:
+	go generate
 ifeq ($(OS),Windows_NT)
 	go build -o $(APP_NAME).exe
 else
