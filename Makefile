@@ -2,8 +2,12 @@ APP_NAME := discord-servertool
 
 default: build
 
+.PHONY: prep
+prep:
+	go install github.com/google/wire/cmd/wire
+
 .PHONY: build
-build:
+build: prep
 	go generate
 ifeq ($(OS),Windows_NT)
 	go build -o $(APP_NAME).exe
