@@ -5,6 +5,7 @@ import (
 	"flag"
 	"io/ioutil"
 	"os"
+	"sync"
 
 	"github.com/biohuns/discord-servertool/entity"
 	"golang.org/x/xerrors"
@@ -29,28 +30,51 @@ type (
 	}
 )
 
-// NewService サービス生成
-func NewService() (entity.ConfigService, error) {
-	filePath := flag.String("config", "config.json", "config file path")
-	flag.Parse()
+var (
+	serviceInstance *Service
+	once            sync.Once
+)
 
-	b, err := ioutil.ReadFile(*filePath)
-	if err != nil {
-		return nil, xerrors.Errorf("read file error: %w", err)
-	}
+// NewService サービス返却
+func ProvideService() (entity.ConfigService, error) {
+	var err error
 
-	c := new(config)
-	if err := json.Unmarshal(b, c); err != nil {
-		return nil, xerrors.Errorf("json unmarshal error: %w", err)
-	}
+	once.Do(func() {
+		filePath := flag.String("config", "config.json", "config file path")
+		flag.Parse()
 
-	if os.Getenv(googleCredentialKey) == "" {
-		if err := os.Setenv(googleCredentialKey, c.GCPCredentialPath); err != nil {
-			return nil, xerrors.Errorf("set env error: %w", err)
+		var b []byte
+		b, err = ioutil.ReadFile(*filePath)
+		if err != nil {
+			err = xerrors.Errorf("read file error: %w", err)
+			return
 		}
+
+		c := new(config)
+		if err = json.Unmarshal(b, c); err != nil {
+			err = xerrors.Errorf("json unmarshal error: %w", err)
+			return
+		}
+
+		if os.Getenv(googleCredentialKey) == "" {
+			if err = os.Setenv(googleCredentialKey, c.GCPCredentialPath); err != nil {
+				err = xerrors.Errorf("set env error: %w", err)
+				return
+			}
+		}
+
+		serviceInstance = &Service{c: c}
+	})
+
+	if serviceInstance == nil {
+		err = xerrors.New("service is not provided")
 	}
 
-	return &Service{c: c}, nil
+	if err != nil {
+		return nil, xerrors.Errorf("provide service error: %w", err)
+	}
+
+	return serviceInstance, nil
 }
 
 // GetDiscordConfig Discordの設定を取得

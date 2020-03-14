@@ -15,15 +15,15 @@ import (
 // Injectors from injector.go:
 
 func initializeMessageService() (entity.MessageService, error) {
-	configService, err := config.NewService()
+	configService, err := config.ProvideService()
 	if err != nil {
 		return nil, err
 	}
-	instanceService, err := gcp.NewService(configService)
+	instanceService, err := gcp.ProvideService(configService)
 	if err != nil {
 		return nil, err
 	}
-	messageService, err := discord.NewService(configService, instanceService)
+	messageService, err := discord.ProvideService(configService, instanceService)
 	if err != nil {
 		return nil, err
 	}

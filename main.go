@@ -5,17 +5,7 @@ import (
 	"os"
 
 	"github.com/biohuns/discord-servertool/logger"
-	"github.com/biohuns/discord-servertool/service/config"
-	"github.com/biohuns/discord-servertool/service/discord"
-	"github.com/biohuns/discord-servertool/service/gcp"
-	"github.com/google/wire"
 	"golang.org/x/xerrors"
-)
-
-var superSet = wire.NewSet(
-	config.NewService,
-	gcp.NewService,
-	discord.NewService,
 )
 
 func main() {
@@ -31,7 +21,7 @@ func main() {
 func listenStart() error {
 	ms, err := initializeMessageService()
 	if err != nil {
-		return xerrors.Errorf("listen error: %w", err)
+		return xerrors.Errorf("init service error: %w", err)
 	}
 
 	if err := ms.Start(); err != nil {
