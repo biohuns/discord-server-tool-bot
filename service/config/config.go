@@ -23,7 +23,7 @@ type (
 		DiscordToken      string `json:"discord_token"`
 		DiscordChannelID  string `json:"discord_channel_id"`
 		DiscordBotID      string `json:"discord_bot_id"`
-		GCPCredentialPath string `json:"gcp_credential"`
+		GCPCredentialPath string `json:"gcp_credential_path"`
 		GCPProjectID      string `json:"gcp_project_id"`
 		GCPZone           string `json:"gcp_zone"`
 		GCPInstanceName   string `json:"gcp_instance_name"`
