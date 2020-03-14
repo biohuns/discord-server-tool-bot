@@ -2,7 +2,9 @@ package gcp
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/biohuns/discord-servertool/entity"
 	"golang.org/x/xerrors"
 	"google.golang.org/api/compute/v1"
 )
@@ -20,34 +22,30 @@ const (
 )
 
 type (
-	// Service インスタンスサービス
-	Service interface {
-		Start() error
-		Stop() error
-		Status() (*Status, error)
-	}
-
-	// Status インスタンス情報
-	Status struct {
-		Name   string
-		Status string
-	}
-
 	service struct {
 		instance     *compute.InstancesService
 		projectID    string
 		zone         string
 		instanceName string
 	}
+
+	info struct {
+		Name   string
+		Status status
+	}
+
+	status string
 )
 
 // NewService サービス生成
-func NewService(projectID, zone, instanceName string) (Service, error) {
+func NewService(cs entity.ConfigService) (entity.InstanceService, error) {
 	ctx := context.Background()
 	svc, err := compute.NewService(ctx)
 	if err != nil {
 		return nil, xerrors.Errorf("gcp error: %w", err)
 	}
+
+	projectID, zone, instanceName := cs.GetGCPConfig()
 
 	return &service{
 		instance:     compute.NewInstancesService(svc),
@@ -78,14 +76,44 @@ func (s *service) Stop() error {
 }
 
 // Status インスタンス状態確認
-func (s *service) Status() (*Status, error) {
+func (s *service) Status() (entity.InstanceInfo, error) {
 	i, err := s.instance.Get(s.projectID, s.zone, s.instanceName).Do()
 	if err != nil {
 		return nil, xerrors.Errorf("gcp error: %w", err)
 	}
 
-	return &Status{
+	return &info{
 		Name:   i.Name,
-		Status: i.Status,
+		Status: status(i.Status),
 	}, nil
+}
+
+// GetStatus インスタンス状態テキスト取得
+func (s *info) GetStatus() string {
+	return fmt.Sprintf("%s: %s", s.Name, s.Status)
+}
+
+func (s status) String() string {
+	switch s {
+	case StatusProvisioning:
+		return "リソース割当中"
+	case StatusRepairing:
+		return "修復中"
+	case StatusRunning:
+		return "起動"
+	case StatusStaging:
+		return "起動準備中"
+	case StatusStopped:
+		return "停止"
+	case StatusStopping:
+		return "停止準備中"
+	case StatusSuspended:
+		return "休止"
+	case StatusSuspending:
+		return "休止準備中"
+	case StatusTerminated:
+		return "終了"
+	default:
+		return string(s)
+	}
 }
