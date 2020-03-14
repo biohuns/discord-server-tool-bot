@@ -10,18 +10,6 @@ import (
 	"google.golang.org/api/compute/v1"
 )
 
-const (
-	StatusProvisioning = "PROVISIONING"
-	StatusRepairing    = "REPAIRING"
-	StatusRunning      = "RUNNING"
-	StatusStaging      = "STAGING"
-	StatusStopped      = "STOPPED"
-	StatusStopping     = "STOPPING"
-	StatusSuspended    = "SUSPENDED"
-	StatusSuspending   = "SUSPENDING"
-	StatusTerminated   = "TERMINATED"
-)
-
 type (
 	// Service GCPサービス
 	Service struct {
@@ -33,10 +21,8 @@ type (
 
 	info struct {
 		Name   string
-		Status status
+		Status entity.InstanceStatus
 	}
-
-	status string
 )
 
 var (
@@ -105,38 +91,40 @@ func (s *Service) Status() (entity.InstanceInfo, error) {
 		return nil, xerrors.Errorf("gcp error: %w", err)
 	}
 
-	return &info{
-		Name:   i.Name,
-		Status: status(i.Status),
-	}, nil
+	info := &info{Name: i.Name}
+
+	switch i.Status {
+	case "PROVISIONING":
+		info.Status = entity.StatusProvisioning
+	case "REPAIRING":
+		info.Status = entity.StatusRepairing
+	case "RUNNING":
+		info.Status = entity.StatusRunning
+	case "STAGING":
+		info.Status = entity.StatusStaging
+	case "STOPPED":
+		info.Status = entity.StatusStopped
+	case "STOPPING":
+		info.Status = entity.StatusStopping
+	case "SUSPENDED":
+		info.Status = entity.StatusSuspended
+	case "SUSPENDING":
+		info.Status = entity.StatusSuspending
+	case "TERMINATED":
+		info.Status = entity.StatusTerminated
+	default:
+		info.Status = entity.StatusUnknown
+	}
+
+	return info, nil
 }
 
 // GetStatus インスタンス状態テキスト取得
-func (s *info) GetStatus() string {
-	return fmt.Sprintf("%s: %s", s.Name, s.Status)
+func (s *info) GetStatus() entity.InstanceStatus {
+	return s.Status
 }
 
-func (s status) String() string {
-	switch s {
-	case StatusProvisioning:
-		return "リソース割当中"
-	case StatusRepairing:
-		return "修復中"
-	case StatusRunning:
-		return "起動"
-	case StatusStaging:
-		return "起動準備中"
-	case StatusStopped:
-		return "停止"
-	case StatusStopping:
-		return "停止準備中"
-	case StatusSuspended:
-		return "休止"
-	case StatusSuspending:
-		return "休止準備中"
-	case StatusTerminated:
-		return "終了"
-	default:
-		return string(s)
-	}
+// GetStatus インスタンス状態テキスト取得
+func (s *info) GetFormattedStatus() string {
+	return fmt.Sprintf("%s: %s", s.Name, s.Status)
 }

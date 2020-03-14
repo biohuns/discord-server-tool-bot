@@ -66,12 +66,11 @@ func (s *Service) Start() error {
 		return xerrors.Errorf("session open error: %w", err)
 	}
 
-	logger.Info("listening...")
-
 	return nil
 }
 
-func (s *Service) send(msg string) {
+// Send メッセージ送信
+func (s *Service) Send(msg string) {
 	if _, err := s.session.ChannelMessageSend(s.channelID, msg); err != nil {
 		logger.Error(
 			fmt.Sprintf("%+v", xerrors.Errorf("message send error: %w", err)),
@@ -79,8 +78,9 @@ func (s *Service) send(msg string) {
 	}
 }
 
-func (s *Service) sendTo(userID, msg string) {
-	s.send(fmt.Sprintf("<@!%s>\n%s", userID, msg))
+// SendTo メッセージ送信（対象を取る）
+func (s *Service) SendTo(userID, msg string) {
+	s.Send(fmt.Sprintf("<@!%s>\n%s", userID, msg))
 }
 
 func (s *Service) getCommand(m *discordgo.MessageCreate) string {

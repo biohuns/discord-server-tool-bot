@@ -27,6 +27,7 @@ type (
 		GCPProjectID      string `json:"gcp_project_id"`
 		GCPZone           string `json:"gcp_zone"`
 		GCPInstanceName   string `json:"gcp_instance_name"`
+		ServerAddress     string `json:"server_address"`
 	}
 )
 
@@ -91,4 +92,12 @@ func (s *Service) GetGCPConfig() (projectID, zone, instanceName string) {
 		return "", "", ""
 	}
 	return s.c.GCPProjectID, s.c.GCPZone, s.c.GCPInstanceName
+}
+
+// GetServerConfig サーバの設定を取得
+func (s *Service) GetServerConfig() (address string) {
+	if s.c == nil {
+		return ""
+	}
+	return s.c.ServerAddress
 }
