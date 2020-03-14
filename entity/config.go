@@ -5,5 +5,6 @@ type (
 	ConfigService interface {
 		GetDiscordConfig() (token, channelID, botID string)
 		GetGCPConfig() (projectID, zone, instanceName string)
+		GetServerConfig() (address string)
 	}
 )

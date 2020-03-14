@@ -19,11 +19,11 @@ func newHandler(service *Service) func(s *discordgo.Session, m *discordgo.Messag
 
 		msg, err := execute(service.is, cmd)
 		if err != nil {
-			service.sendTo(m.Author.ID, fmt.Sprintf("```ERROR: %s``````%+v```", cmd, err))
+			service.SendTo(m.Author.ID, fmt.Sprintf("```ERROR: %s``````%+v```", cmd, err))
 			logger.Error(fmt.Sprintf("%+v", err))
 		}
 
-		service.sendTo(m.Author.ID, msg)
+		service.SendTo(m.Author.ID, msg)
 	}
 }
 
@@ -49,7 +49,7 @@ func execute(is entity.InstanceService, cmd string) (string, error) {
 		if err != nil {
 			return "", xerrors.Errorf("get status error: %w", err)
 		}
-		return fmt.Sprintf("```%s```", s.GetStatus()), nil
+		return fmt.Sprintf("```%s```", s.GetFormattedStatus()), nil
 
 	case "help":
 		return "", nil
