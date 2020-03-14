@@ -2,7 +2,6 @@
     "discord_token": "",
     "discord_channel_id": "",
     "discord_bot_id": "",
-    "discord_bot_name": "",
     "gcp_credential_path": "",
     "gcp_project_id": "",
     "gcp_zone": "",
