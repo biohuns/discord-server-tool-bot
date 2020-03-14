@@ -3,81 +3,89 @@ package gcp
 import (
 	"context"
 
-	"github.com/biohuns/discord-servertool/config"
 	"golang.org/x/xerrors"
 	"google.golang.org/api/compute/v1"
 )
 
+const (
+	StatusProvisioning = "PROVISIONING"
+	StatusRepairing    = "REPAIRING"
+	StatusRunning      = "RUNNING"
+	StatusStaging      = "STAGING"
+	StatusStopped      = "STOPPED"
+	StatusStopping     = "STOPPING"
+	StatusSuspended    = "SUSPENDED"
+	StatusSuspending   = "SUSPENDING"
+	StatusTerminated   = "TERMINATED"
+)
+
 type (
-	// Service サービス
-	Service struct {
-		is *compute.InstancesService
+	// Service インスタンスサービス
+	Service interface {
+		Start() error
+		Stop() error
+		Status() (*Status, error)
 	}
 
-	// Instance インスタンス情報
-	Instance struct {
+	// Status インスタンス情報
+	Status struct {
 		Name   string
 		Status string
 	}
+
+	service struct {
+		instance     *compute.InstancesService
+		projectID    string
+		zone         string
+		instanceName string
+	}
 )
 
-// Shared 共有インスタンス
-var Shared *Service
-
-// Init サービス生成
-func Init() error {
+// NewService サービス生成
+func NewService(projectID, zone, instanceName string) (Service, error) {
 	ctx := context.Background()
-	s, err := compute.NewService(ctx)
+	svc, err := compute.NewService(ctx)
 	if err != nil {
-		return xerrors.Errorf("GCP error: %w", err)
+		return nil, xerrors.Errorf("gcp error: %w", err)
 	}
 
-	Shared = &Service{is: compute.NewInstancesService(s)}
-
-	return nil
+	return &service{
+		instance:     compute.NewInstancesService(svc),
+		projectID:    projectID,
+		zone:         zone,
+		instanceName: instanceName,
+	}, nil
 }
 
 // Start インスタンス開始
-func (s *Service) Start() error {
-	_, err := s.is.Start(config.Get().GCP.ProjectID, config.Get().GCP.Zone, config.Get().GCP.InstanceName).Do()
+func (s *service) Start() error {
+	_, err := s.instance.Start(s.projectID, s.zone, s.instanceName).Do()
 	if err != nil {
-		return xerrors.Errorf("GCP error: %w", err)
+		return xerrors.Errorf("gcp error: %w", err)
 	}
 
 	return nil
 }
 
 // Stop インスタンス停止
-func (s *Service) Stop() error {
-	_, err := s.is.Stop(
-		config.Get().GCP.ProjectID,
-		config.Get().GCP.Zone,
-		config.Get().GCP.InstanceName,
-	).Do()
+func (s *service) Stop() error {
+	_, err := s.instance.Stop(s.projectID, s.zone, s.instanceName).Do()
 	if err != nil {
-		return xerrors.Errorf("GCP error: %w", err)
+		return xerrors.Errorf("gcp error: %w", err)
 	}
 
 	return nil
 }
 
-// Instances インスタンス一覧
-func (s *Service) Instances() ([]*Instance, error) {
-	list, err := s.is.List(
-		config.Get().GCP.ProjectID,
-		config.Get().GCP.Zone,
-	).Do()
+// Status インスタンス状態確認
+func (s *service) Status() (*Status, error) {
+	i, err := s.instance.Get(s.projectID, s.zone, s.instanceName).Do()
 	if err != nil {
-		return nil, xerrors.Errorf("GCP error: %w", err)
+		return nil, xerrors.Errorf("gcp error: %w", err)
 	}
 
-	var instances []*Instance
-	for _, instance := range list.Items {
-		instances = append(instances, &Instance{
-			Name:   instance.Name,
-			Status: instance.Status,
-		})
-	}
-
-	return instances, nil
+	return &Status{
+		Name:   i.Name,
+		Status: i.Status,
+	}, nil
 }

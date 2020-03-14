@@ -14,19 +14,16 @@ import (
 )
 
 func initialize() error {
-	configPath := flag.String(
-		"config",
-		"config.json",
-		"config file path",
-	)
+	configPath := flag.String("config", "config.json", "config file path")
 	flag.Parse()
 
-	if err := config.Init(*configPath); err != nil {
+	c, err := config.Open(*configPath)
+	if err != nil {
 		return xerrors.Errorf("config error: %w", err)
 	}
 
-	if err := gcp.Init(); err != nil {
-		return xerrors.Errorf("GCP init error: %w", err)
+	if gcpService, err := gcp.NewService(c.GCP.ProjectID, c.GCP.Zone, c.GCP.InstanceName); err != nil {
+		return xerrors.Errorf("gcp init error: %w", err)
 	}
 
 	if err := discord.Start(); err != nil {
