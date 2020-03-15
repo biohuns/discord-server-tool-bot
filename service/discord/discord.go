@@ -75,30 +75,24 @@ func (s *Service) newHandler() func(*discordgo.Session, *discordgo.MessageCreate
 				_ = s.Send(m.Author.ID, fmt.Sprintf("```インスタンス状態確認失敗``````%+v```", err))
 				s.log.Error(xerrors.Errorf("failed to get instance: %w", err))
 			}
-			if instanceStatus.Status == entity.InstanceStatusRunning {
-				serverStatus, err := s.server.Status()
-				if err != nil {
-					_ = s.Send(m.Author.ID, fmt.Sprintf("```サーバ状態確認失敗``````%+v```", err))
-					s.log.Error(xerrors.Errorf("failed to get server status: %w", err))
-				}
+			serverStatus, err := s.server.Status()
+			if err != nil {
+				_ = s.Send(m.Author.ID, fmt.Sprintf("```サーバ状態確認失敗``````%+v```", err))
+				s.log.Error(xerrors.Errorf("failed to get server status: %w", err))
+			}
 
-				_ = s.Send(m.Author.ID,
-					util.InstanceStatusText(
-						instanceStatus.Name,
-						instanceStatus.Status.String(),
-					)+util.ServerStatusText(
-						serverStatus.IsOnline,
-						serverStatus.GameName,
-						serverStatus.PlayerCount,
-						serverStatus.MaxPlayerCount,
-						serverStatus.Map,
-					))
-			} else {
-				_ = s.Send(m.Author.ID, util.InstanceStatusText(
+			_ = s.Send(m.Author.ID,
+				util.InstanceStatusText(
 					instanceStatus.Name,
 					instanceStatus.Status.String(),
-				))
-			}
+				)+util.ServerStatusText(
+					serverStatus.IsOnline,
+					serverStatus.GameName,
+					serverStatus.PlayerCount,
+					serverStatus.MaxPlayerCount,
+					serverStatus.Map,
+				),
+			)
 
 		default:
 			_ = s.Send(m.Author.ID, "```start:  起動\nstop:   停止\nstatus: 状態確認```")
