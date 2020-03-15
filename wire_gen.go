@@ -7,14 +7,31 @@ package main
 
 import (
 	"github.com/biohuns/discord-servertool/entity"
+	"github.com/biohuns/discord-servertool/service/batch"
+	"github.com/biohuns/discord-servertool/service/cache"
 	"github.com/biohuns/discord-servertool/service/config"
 	"github.com/biohuns/discord-servertool/service/discord"
 	"github.com/biohuns/discord-servertool/service/gcp"
+	"github.com/biohuns/discord-servertool/service/log"
+	"github.com/biohuns/discord-servertool/service/steam"
+	"github.com/google/wire"
 )
 
 // Injectors from injector.go:
 
-func initializeMessageService() (entity.MessageService, error) {
+func initLogService() (entity.LogService, error) {
+	logService, err := log.ProvideService()
+	if err != nil {
+		return nil, err
+	}
+	return logService, nil
+}
+
+func initMessageService() (entity.MessageService, error) {
+	logService, err := log.ProvideService()
+	if err != nil {
+		return nil, err
+	}
 	configService, err := config.ProvideService()
 	if err != nil {
 		return nil, err
@@ -23,9 +40,53 @@ func initializeMessageService() (entity.MessageService, error) {
 	if err != nil {
 		return nil, err
 	}
-	messageService, err := discord.ProvideService(configService, instanceService)
+	cacheService, err := cache.ProvideService()
+	if err != nil {
+		return nil, err
+	}
+	serverStatusService, err := steam.ProvideService(configService, cacheService)
+	if err != nil {
+		return nil, err
+	}
+	messageService, err := discord.ProvideService(logService, configService, instanceService, serverStatusService)
 	if err != nil {
 		return nil, err
 	}
 	return messageService, nil
 }
+
+func initBatchService() (entity.BatchService, error) {
+	logService, err := log.ProvideService()
+	if err != nil {
+		return nil, err
+	}
+	cacheService, err := cache.ProvideService()
+	if err != nil {
+		return nil, err
+	}
+	configService, err := config.ProvideService()
+	if err != nil {
+		return nil, err
+	}
+	instanceService, err := gcp.ProvideService(configService)
+	if err != nil {
+		return nil, err
+	}
+	serverStatusService, err := steam.ProvideService(configService, cacheService)
+	if err != nil {
+		return nil, err
+	}
+	messageService, err := discord.ProvideService(logService, configService, instanceService, serverStatusService)
+	if err != nil {
+		return nil, err
+	}
+	batchService, err := batch.ProvideService(logService, cacheService, instanceService, messageService, serverStatusService)
+	if err != nil {
+		return nil, err
+	}
+	return batchService, nil
+}
+
+// injector.go:
+
+var superSet = wire.NewSet(config.ProvideService, log.ProvideService, cache.ProvideService, gcp.ProvideService, steam.ProvideService, discord.ProvideService, batch.ProvideService)

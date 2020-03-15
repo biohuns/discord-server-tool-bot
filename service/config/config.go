@@ -13,26 +13,38 @@ import (
 
 const googleCredentialKey = "GOOGLE_APPLICATION_CREDENTIALS"
 
-type (
-	// Service 設定サービス
-	Service struct {
-		c *config
-	}
+// Service 設定サービス
+type Service struct {
+	c *entity.Config
+}
 
-	config struct {
-		DiscordToken      string `json:"discord_token"`
-		DiscordChannelID  string `json:"discord_channel_id"`
-		DiscordBotID      string `json:"discord_bot_id"`
-		GCPCredentialPath string `json:"gcp_credential_path"`
-		GCPProjectID      string `json:"gcp_project_id"`
-		GCPZone           string `json:"gcp_zone"`
-		GCPInstanceName   string `json:"gcp_instance_name"`
+// GetDiscordConfig Discordの設定を取得
+func (s *Service) GetDiscordConfig() (token, channelID, botID string) {
+	if s.c == nil {
+		return "", "", ""
 	}
-)
+	return s.c.Discord.Token, s.c.Discord.ChannelID, s.c.Discord.BotID
+}
+
+// GetGCPConfig GCPの設定を取得
+func (s *Service) GetGCPConfig() (project, zone, instance string) {
+	if s.c == nil {
+		return "", "", ""
+	}
+	return s.c.GCP.Project, s.c.GCP.Zone, s.c.GCP.Instance
+}
+
+// GetServerConfig サーバの設定を取得
+func (s *Service) GetServerConfig() (address string) {
+	if s.c == nil {
+		return ""
+	}
+	return s.c.Server.Address
+}
 
 var (
-	serviceInstance *Service
-	once            sync.Once
+	shared *Service
+	once   sync.Once
 )
 
 // NewService サービス返却
@@ -46,49 +58,33 @@ func ProvideService() (entity.ConfigService, error) {
 		var b []byte
 		b, err = ioutil.ReadFile(*filePath)
 		if err != nil {
-			err = xerrors.Errorf("read file error: %w", err)
+			err = xerrors.Errorf("failed to read config file: %w", err)
 			return
 		}
 
-		c := new(config)
+		c := new(entity.Config)
 		if err = json.Unmarshal(b, c); err != nil {
-			err = xerrors.Errorf("json unmarshal error: %w", err)
+			err = xerrors.Errorf("failed to unmarshal json: %w", err)
 			return
 		}
 
 		if os.Getenv(googleCredentialKey) == "" {
-			if err = os.Setenv(googleCredentialKey, c.GCPCredentialPath); err != nil {
-				err = xerrors.Errorf("set env error: %w", err)
+			if err = os.Setenv(googleCredentialKey, c.GCP.CredentialPath); err != nil {
+				err = xerrors.Errorf("failed to set google application credentials: %w", err)
 				return
 			}
 		}
 
-		serviceInstance = &Service{c: c}
+		shared = &Service{c: c}
 	})
 
-	if serviceInstance == nil {
-		err = xerrors.New("service is not provided")
+	if shared == nil {
+		err = xerrors.Errorf("service is not provided: %w", err)
 	}
 
 	if err != nil {
-		return nil, xerrors.Errorf("provide service error: %w", err)
+		return nil, xerrors.Errorf("failed to provide service: %w", err)
 	}
 
-	return serviceInstance, nil
-}
-
-// GetDiscordConfig Discordの設定を取得
-func (s *Service) GetDiscordConfig() (token, channelID, botID string) {
-	if s.c == nil {
-		return "", "", ""
-	}
-	return s.c.DiscordToken, s.c.DiscordChannelID, s.c.DiscordBotID
-}
-
-// GetGCPConfig GCPの設定を取得
-func (s *Service) GetGCPConfig() (projectID, zone, instanceName string) {
-	if s.c == nil {
-		return "", "", ""
-	}
-	return s.c.GCPProjectID, s.c.GCPZone, s.c.GCPInstanceName
+	return shared, nil
 }
