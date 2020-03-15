@@ -79,7 +79,7 @@ func ProvideService() (entity.ConfigService, error) {
 	})
 
 	if shared == nil {
-		err = xerrors.Errorf("service is not provided", err)
+		err = xerrors.Errorf("service is not provided: %w", err)
 	}
 
 	if err != nil {
