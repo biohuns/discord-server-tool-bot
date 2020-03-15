@@ -48,12 +48,6 @@ func (s Service) checkServerStatus() error {
 	if err != nil {
 		return xerrors.Errorf("failed to check instance status: %w", err)
 	}
-	instanceStatus, err := s.instance.Status()
-	if err != nil {
-		return xerrors.Errorf("failed to get instance info: %w", err)
-	}
-
-	fmt.Printf("%+v\n", serverStatus)
 
 	// サーバー状態変更検知
 
@@ -69,18 +63,14 @@ func (s Service) checkServerStatus() error {
 
 	// 起動した状態での放置防止
 
-	// TODO: プロセスが死んでいる場合は、isOnline = true かつ status = "RUNNING" になる。処理を足す
-	if !serverStatus.IsNobody() ||
-		serverStatus.NobodyTime < warningMinutes ||
-		instanceStatus.Status != entity.InstanceStatusRunning {
+	if !serverStatus.IsNobody() || serverStatus.NobodyTime < warningMinutes {
 		return nil
 	}
 
 	if serverStatus.NobodyTime < shutdownMinutes {
 		leftTime := shutdownMinutes - serverStatus.NobodyTime
 		_ = s.message.Send("",
-			fmt.Sprintf(
-				"```[%s]\n自動停止まで: %dm%ds```",
+			fmt.Sprintf("```[%s]\n自動停止まで: %dm%ds```",
 				serverStatus.GameName,
 				int(leftTime.Minutes()),
 				int(leftTime.Seconds())-60*int(leftTime.Minutes()),
