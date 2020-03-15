@@ -10,12 +10,7 @@ import (
 	"golang.org/x/xerrors"
 )
 
-const timeout = 1 * time.Second
-
-var (
-	serviceInstance *Service
-	once            sync.Once
-)
+const timeout = 3 * time.Second
 
 // Service Steamサービス
 type Service struct {
@@ -26,7 +21,12 @@ type Service struct {
 // Status サーバ状態取得
 func (s Service) Status() (*entity.ServerStatus, error) {
 	last := new(entity.ServerStatus)
-	if err := s.cache.Get(entity.ServerStatusKey, last); err != nil {
+	v, err := s.cache.Get(entity.ServerStatusKey)
+	if err != nil {
+		last = nil
+	}
+	last, ok := v.(*entity.ServerStatus)
+	if !ok {
 		last = nil
 	}
 
@@ -34,7 +34,7 @@ func (s Service) Status() (*entity.ServerStatus, error) {
 
 	if last == nil {
 		if err := s.cache.Set(entity.ServerStatusKey, current); err != nil {
-			return nil, err
+			return nil, xerrors.Errorf("failed to set to cache: %w", err)
 		}
 		return current, nil
 	}
@@ -43,12 +43,12 @@ func (s Service) Status() (*entity.ServerStatus, error) {
 		current.IsStatusChanged = true
 	}
 
-	if last.PlayerCount == 0 && current.PlayerCount == 0 {
+	if last.IsNobody() && current.IsNobody() {
 		current.NobodyTime = last.NobodyTime + current.CheckedAt.Sub(last.CheckedAt)
 	}
 
 	if err := s.cache.Set(entity.ServerStatusKey, current); err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("failed to set to cache: %w", err)
 	}
 
 	return current, nil
@@ -61,12 +61,19 @@ func (s *Service) getCurrentStatus() *entity.ServerStatus {
 
 	if info, err := s.server.Info(timeout); err == nil {
 		status.IsOnline = true
-		status.Name = info.GetGame()
-		//status.PlayerCount = int(info.GetPlayers())
+		status.GameName = info.GetGame()
+		status.PlayerCount = int(info.GetPlayers())
+		status.MaxPlayerCount = int(info.GetMaxPlayers())
+		status.Map = info.GetMap()
 	}
 
 	return status
 }
+
+var (
+	shared *Service
+	once   sync.Once
+)
 
 // ProvideService サービス返却
 func ProvideService(config entity.ConfigService, cache entity.CacheService) (entity.ServerStatusService, error) {
@@ -81,19 +88,19 @@ func ProvideService(config entity.ConfigService, cache entity.CacheService) (ent
 			return
 		}
 
-		serviceInstance = &Service{
+		shared = &Service{
 			cache:  cache,
 			server: server,
 		}
 	})
 
-	if serviceInstance == nil {
+	if shared == nil {
 		err = xerrors.Errorf("service is not provided: %w", err)
 	}
 
 	if err != nil {
-		return nil, xerrors.Errorf("provide service error: %w", err)
+		return nil, xerrors.Errorf("failed to provide service: %w", err)
 	}
 
-	return serviceInstance, nil
+	return shared, nil
 }

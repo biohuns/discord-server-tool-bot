@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"encoding/json"
 	"sync"
 
 	"github.com/biohuns/discord-servertool/entity"
@@ -13,9 +12,40 @@ type Service struct {
 	s *sync.Map
 }
 
+// Get キャッシュから取り出す
+func (s Service) Get(key entity.CacheKey) (interface{}, error) {
+	value, ok := s.s.Load(key)
+	if !ok {
+		return nil, xerrors.New("specified key cannot be found")
+	}
+
+	return value, nil
+}
+
+// Set キャッシュに保存
+func (s Service) Set(key entity.CacheKey, value interface{}) error {
+	s.s.Store(key, value)
+	return nil
+}
+
+// Dump キャッシュをダンプする
+func (s Service) Dump() entity.CacheDumpList {
+	list := make(entity.CacheDumpList, 0)
+	s.s.Range(func(key, value interface{}) bool {
+		k := key.(entity.CacheKey)
+		list = append(list, &entity.CacheDump{
+			Key:   k,
+			Value: value,
+		})
+		return true
+	})
+
+	return list
+}
+
 var (
-	serviceInstance *Service
-	once            sync.Once
+	shared *Service
+	once   sync.Once
 )
 
 // ProvideService サービス返却
@@ -23,46 +53,16 @@ func ProvideService() (entity.CacheService, error) {
 	var err error
 
 	once.Do(func() {
-		serviceInstance = &Service{s: new(sync.Map)}
+		shared = &Service{s: new(sync.Map)}
 	})
 
-	if serviceInstance == nil {
-		err = xerrors.New("service is not provided")
+	if shared == nil {
+		return nil, xerrors.Errorf("service is not provided: %w", err)
 	}
 
 	if err != nil {
-		return nil, xerrors.Errorf("provide service error: %w", err)
+		return nil, xerrors.Errorf("failed to provide service: %w", err)
 	}
 
-	return serviceInstance, nil
-}
-
-// Get キャッシュから取り出す
-func (s Service) Get(key string, v interface{}) error {
-	value, ok := s.s.Load(key)
-	if !ok {
-		return xerrors.New("key not found")
-	}
-
-	b, ok := value.([]byte)
-	if !ok {
-		return xerrors.New("failed to assertion")
-	}
-
-	if err := json.Unmarshal(b, v); err != nil {
-		return xerrors.Errorf("failed to unmarshal json: %w", err)
-	}
-
-	return nil
-}
-
-// Set キャッシュに保存
-func (s Service) Set(key string, value interface{}) error {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return xerrors.Errorf("failed to marshal json: %w", err)
-	}
-
-	s.s.Store(key, b)
-	return nil
+	return shared, nil
 }

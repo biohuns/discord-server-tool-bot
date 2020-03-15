@@ -5,28 +5,23 @@ import (
 	"sync"
 	"time"
 
-	"github.com/biohuns/discord-servertool/logger"
+	"github.com/biohuns/discord-servertool/util"
 
 	"github.com/biohuns/discord-servertool/entity"
 	"golang.org/x/xerrors"
 )
 
 const (
-	//interval        = 10 * time.Second
-	interval = 5 * time.Second
+	interval = 10 * time.Second
 	//warningMinutes  = 20 * time.Minute
-	warningMinutes = 30 * time.Second
+	warningMinutes = 1 * time.Minute
 	//shutdownMinutes = 30 * time.Minute
-	shutdownMinutes = 60 * time.Second
-)
-
-var (
-	serviceInstance *Service
-	once            sync.Once
+	shutdownMinutes = 3 * time.Minute
 )
 
 // BatchService バッチサービス
 type Service struct {
+	log      entity.LogService
 	cache    entity.CacheService
 	instance entity.InstanceService
 	message  entity.MessageService
@@ -35,71 +30,94 @@ type Service struct {
 
 func (s Service) Start() {
 	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
 			start := time.Now()
 			if err := s.checkServerStatus(); err != nil {
-				logger.Error(
-					fmt.Sprintf("%+v\n", xerrors.Errorf("failed to check server status: %w", err)),
-				)
+				s.log.Error(xerrors.Errorf("failed to check server status: %w", err))
 			}
-			logger.Info(fmt.Sprintf("finish batch: %s", time.Now().Sub(start)))
+			s.log.Info(
+				fmt.Sprintf("finish batch (%s)", time.Now().Sub(start)),
+			)
 		}
 	}
 }
 
 func (s Service) checkServerStatus() error {
-	status, err := s.server.Status()
+	serverStatus, err := s.server.Status()
 	if err != nil {
 		return xerrors.Errorf("failed to check instance status: %w", err)
 	}
-
-	// サーバー状態変更検知
-	if status.IsStatusChanged {
-		if status.IsOnline {
-			s.message.Send(fmt.Sprintf("```[%s]\n状態変更検知: オンライン```", status.Name))
-		} else {
-			s.message.Send("```状態変更検知: オフライン```")
-		}
+	instanceStatus, err := s.instance.Status()
+	if err != nil {
+		return xerrors.Errorf("failed to get instance info: %w", err)
 	}
 
-	if err := s.cache.Set(entity.ServerStatusKey, status); err != nil {
-		return xerrors.Errorf("failed to store cache: %w", err)
+	fmt.Printf("%+v\n", serverStatus)
+
+	// サーバー状態変更検知
+
+	if serverStatus.IsStatusChanged {
+		_ = s.message.Send("", util.StatusText(
+			instanceStatus.Name,
+			instanceStatus.Status.String(),
+			serverStatus.IsOnline,
+			serverStatus.GameName,
+			serverStatus.PlayerCount,
+			serverStatus.MaxPlayerCount,
+			serverStatus.Map,
+		))
 	}
 
 	// 起動した状態での放置防止
-	if warningMinutes < status.NobodyTime {
-		info, err := s.instance.Status()
-		if err != nil {
-			return xerrors.Errorf("failed to get instance info: %w", err)
-		}
-		if info.GetStatus() == entity.StatusRunning {
-			if shutdownMinutes < status.NobodyTime {
-				if err := s.instance.Stop(); err != nil {
-					return xerrors.Errorf("failed to stop instance: %w", err)
-				}
-				s.message.Send(fmt.Sprintf("```[%s]\n自動停止中...```", status.Name))
-			} else {
-				s.message.Send(fmt.Sprintf("```[%s]\n自動停止まで: %s```", status.Name, shutdownMinutes-status.NobodyTime))
-			}
-		}
+
+	// TODO: プロセスが死んでいる場合は、isOnline = true かつ status = "RUNNING" になる。処理を足す
+	if !serverStatus.IsNobody() ||
+		serverStatus.NobodyTime < warningMinutes ||
+		instanceStatus.Status != entity.InstanceStatusRunning {
+		return nil
+	}
+
+	if serverStatus.NobodyTime < shutdownMinutes {
+		leftTime := shutdownMinutes - serverStatus.NobodyTime
+		_ = s.message.Send("",
+			fmt.Sprintf(
+				"```[%s]\n自動停止まで: %dm%ds```",
+				serverStatus.GameName,
+				int(leftTime.Minutes()),
+				int(leftTime.Seconds())-60*int(leftTime.Minutes()),
+			),
+		)
+		return nil
+	}
+
+	_ = s.message.Send("", fmt.Sprintf("```[%s]\n自動停止中...```", serverStatus.GameName))
+
+	if err := s.instance.Stop(); err != nil {
+		return xerrors.Errorf("failed to stop instance: %w", err)
 	}
 
 	return nil
 }
 
+var (
+	shared *Service
+	once   sync.Once
+)
+
 // NewService サービス返却
 func ProvideService(
+	log entity.LogService,
 	cache entity.CacheService,
 	instance entity.InstanceService,
 	message entity.MessageService,
 	server entity.ServerStatusService,
 ) (entity.BatchService, error) {
-	var err error
-
 	once.Do(func() {
-		serviceInstance = &Service{
+		shared = &Service{
+			log:      log,
 			cache:    cache,
 			instance: instance,
 			message:  message,
@@ -107,13 +125,9 @@ func ProvideService(
 		}
 	})
 
-	if serviceInstance == nil {
-		err = xerrors.New("service is not provided")
+	if shared == nil {
+		return nil, xerrors.New("service is not provided")
 	}
 
-	if err != nil {
-		return nil, xerrors.Errorf("provide service error: %w", err)
-	}
-
-	return serviceInstance, nil
+	return shared, nil
 }

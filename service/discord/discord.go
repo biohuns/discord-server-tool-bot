@@ -5,82 +5,100 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/biohuns/discord-servertool/util"
+
 	"github.com/biohuns/discord-servertool/entity"
-	"github.com/biohuns/discord-servertool/logger"
 	"github.com/bwmarrin/discordgo"
 	"golang.org/x/xerrors"
 )
 
 // Service Discordサービス
 type Service struct {
-	is        entity.InstanceService
+	log       entity.LogService
+	instance  entity.InstanceService
+	server    entity.ServerStatusService
 	session   *discordgo.Session
 	channelID string
 	botID     string
 }
 
-var (
-	serviceInstance *Service
-	once            sync.Once
-)
-
-// ProvideService サービス返却
-func ProvideService(cs entity.ConfigService, is entity.InstanceService) (entity.MessageService, error) {
-	var err error
-
-	once.Do(func() {
-		var session *discordgo.Session
-		session, err = discordgo.New()
-		if err != nil {
-			err = xerrors.Errorf("create session error: %w", err)
-			return
-		}
-
-		token, channelID, botID := cs.GetDiscordConfig()
-		session.Token = fmt.Sprintf("Bot %s", token)
-
-		serviceInstance = &Service{
-			is:        is,
-			session:   session,
-			channelID: channelID,
-			botID:     botID,
-		}
-	})
-
-	if serviceInstance == nil {
-		err = xerrors.New("service is not provided")
-	}
-
-	if err != nil {
-		return nil, xerrors.Errorf("provide service error: %w", err)
-	}
-
-	return serviceInstance, nil
-}
-
 // Start ハンドラを追加して監視を開始
 func (s *Service) Start() error {
-	s.session.AddHandler(newHandler(s))
+	s.session.AddHandler(s.newHandler())
 
 	if err := s.session.Open(); err != nil {
-		return xerrors.Errorf("session open error: %w", err)
+		return xerrors.Errorf("failed to open session: %w", err)
 	}
 
 	return nil
 }
 
 // Send メッセージ送信
-func (s *Service) Send(msg string) {
-	if _, err := s.session.ChannelMessageSend(s.channelID, msg); err != nil {
-		logger.Error(
-			fmt.Sprintf("%+v", xerrors.Errorf("message send error: %w", err)),
-		)
+func (s *Service) Send(userID, msg string) error {
+	if userID != "" {
+		msg = fmt.Sprintf("<@!%s>\n%s", userID, msg)
 	}
+
+	if _, err := s.session.ChannelMessageSend(s.channelID, msg); err != nil {
+		return xerrors.Errorf("failed to send message: %w", err)
+	}
+	return nil
 }
 
-// SendTo メッセージ送信（対象を取る）
-func (s *Service) SendTo(userID, msg string) {
-	s.Send(fmt.Sprintf("<@!%s>\n%s", userID, msg))
+func (s *Service) newHandler() func(*discordgo.Session, *discordgo.MessageCreate) {
+	return func(sess *discordgo.Session, m *discordgo.MessageCreate) {
+		if !s.isCommand(m) {
+			return
+		}
+
+		switch s.getCommand(m) {
+		// インスタンス起動
+		case "start":
+			if err := s.instance.Start(); err != nil {
+				_ = s.Send(m.Author.ID, fmt.Sprintf(m.Author.ID, "```インスタンス起動処理失敗``````%+v```", err))
+				s.log.Error(xerrors.Errorf("failed to start instance: %w", err))
+			}
+			_ = s.Send(m.Author.ID, "```起動処理中...```")
+
+		// インスタンス停止
+		case "stop":
+			if err := s.instance.Stop(); err != nil {
+				_ = s.Send(m.Author.ID, fmt.Sprintf(m.Author.ID, "```インスタンス停止処理失敗``````%+v```", err))
+				s.log.Error(xerrors.Errorf("failed to stop instance: %w", err))
+			}
+			_ = s.Send(m.Author.ID, "```停止処理中...```")
+
+		// インスタンス状態確認
+		case "status":
+			instanceStatus, err := s.instance.Status()
+			if err != nil {
+				_ = s.Send(m.Author.ID, fmt.Sprintf(m.Author.ID, "```インスタンス状態確認失敗``````%+v```", err))
+				s.log.Error(xerrors.Errorf("failed to get instance: %w", err))
+			}
+			if instanceStatus.Status == entity.InstanceStatusRunning {
+				serverStatus, err := s.server.Status()
+				if err != nil {
+					_ = s.Send(m.Author.ID, fmt.Sprintf(m.Author.ID, "```サーバ状態確認失敗``````%+v```", err))
+					s.log.Error(xerrors.Errorf("failed to get server status: %w", err))
+				}
+
+				_ = s.Send(m.Author.ID, util.StatusText(
+					instanceStatus.Name,
+					instanceStatus.Status.String(),
+					serverStatus.IsOnline,
+					serverStatus.GameName,
+					serverStatus.PlayerCount,
+					serverStatus.MaxPlayerCount,
+					serverStatus.Map,
+				))
+			} else {
+				_ = s.Send(m.Author.ID, util.InstanceStatusText(instanceStatus.Name, instanceStatus.Status.String()))
+			}
+
+		default:
+			_ = s.Send(m.Author.ID, "```start:  起動\nstop:   停止\nstatus: 状態確認```")
+		}
+	}
 }
 
 func (s *Service) getCommand(m *discordgo.MessageCreate) string {
@@ -103,4 +121,50 @@ func (s *Service) isCommand(m *discordgo.MessageCreate) bool {
 		(strings.HasPrefix(m.Content, fmt.Sprintf("<@%s>", s.botID)) ||
 			strings.HasPrefix(m.Content, fmt.Sprintf("<@!%s>", s.botID))) &&
 		s.getCommand(m) != ""
+}
+
+var (
+	shared *Service
+	once   sync.Once
+)
+
+// ProvideService サービス返却
+func ProvideService(
+	log entity.LogService,
+	cache entity.ConfigService,
+	instance entity.InstanceService,
+	server entity.ServerStatusService,
+) (entity.MessageService, error) {
+	var err error
+
+	once.Do(func() {
+		var session *discordgo.Session
+		session, err = discordgo.New()
+		if err != nil {
+			err = xerrors.Errorf("failed to create session: %w", err)
+			return
+		}
+
+		token, channelID, botID := cache.GetDiscordConfig()
+		session.Token = fmt.Sprintf("Bot %s", token)
+
+		shared = &Service{
+			log:       log,
+			instance:  instance,
+			server:    server,
+			session:   session,
+			channelID: channelID,
+			botID:     botID,
+		}
+	})
+
+	if shared == nil {
+		err = xerrors.Errorf("service is not provided: %w", err)
+	}
+
+	if err != nil {
+		return nil, xerrors.Errorf("failed to provide service: %w", err)
+	}
+
+	return shared, nil
 }

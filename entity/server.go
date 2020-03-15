@@ -2,21 +2,24 @@ package entity
 
 import "time"
 
-// ServerStatusKey サーバー状態のキー
-const ServerStatusKey = "server_status"
-
-// ServerStatusService サーバー状態サービス
+// ServerStatusService サーバーステータスサービス
 type ServerStatusService interface {
 	Status() (*ServerStatus, error)
 }
 
-// ServerStatus サーバー状態
+// ServerStatus サーバーステータス
 type ServerStatus struct {
-	IsOnline    bool      `json:"is_online"`
-	Name        string    `json:"name"`
-	PlayerCount int       `json:"player_count"`
-	CheckedAt   time.Time `json:"checked_at"`
-
+	IsOnline        bool          `json:"is_online"`
+	GameName        string        `json:"game_name"`
+	PlayerCount     int           `json:"player_count"`
+	MaxPlayerCount  int           `json:"max_player_count"`
+	Map             string        `json:"map"`
+	CheckedAt       time.Time     `json:"checked_at"`
 	IsStatusChanged bool          `json:"is_online_changed"`
 	NobodyTime      time.Duration `json:"nobody_time"`
+}
+
+// IsNobody サーバーにだれもいない状態
+func (ss *ServerStatus) IsNobody() bool {
+	return ss.IsOnline && ss.PlayerCount == 0
 }
