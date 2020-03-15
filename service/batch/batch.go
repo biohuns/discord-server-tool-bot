@@ -58,9 +58,7 @@ func (s Service) checkServerStatus() error {
 	// サーバー状態変更検知
 
 	if serverStatus.IsStatusChanged {
-		_ = s.message.Send("", util.StatusText(
-			instanceStatus.Name,
-			instanceStatus.Status.String(),
+		_ = s.message.Send("", util.ServerStatusText(
 			serverStatus.IsOnline,
 			serverStatus.GameName,
 			serverStatus.PlayerCount,

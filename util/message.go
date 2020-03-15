@@ -2,9 +2,7 @@ package util
 
 import "fmt"
 
-func StatusText(
-	instanceName string,
-	instanceStatus string,
+func ServerStatusText(
 	isOnline bool,
 	gameName string,
 	playerCount int,
@@ -18,9 +16,7 @@ func StatusText(
 		mapText = "None"
 	}
 	return fmt.Sprintf(
-		"```<%s: %s>\n[%s]: %s\n  Player: %d / %d\n  Map:    %s```",
-		instanceName,
-		instanceStatus,
+		"```[%s]: %s\n  Player: %d / %d\n  Map:    %s```",
 		gameName,
 		statusText,
 		playerCount,
