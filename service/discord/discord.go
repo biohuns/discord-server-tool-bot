@@ -55,7 +55,7 @@ func (s *Service) newHandler() func(*discordgo.Session, *discordgo.MessageCreate
 		// インスタンス起動
 		case "start":
 			if err := s.instance.Start(); err != nil {
-				_ = s.Send(m.Author.ID, fmt.Sprintf(m.Author.ID, "```インスタンス起動処理失敗``````%+v```", err))
+				_ = s.Send(m.Author.ID, fmt.Sprintf("```インスタンス起動処理失敗``````%+v```", err))
 				s.log.Error(xerrors.Errorf("failed to start instance: %w", err))
 			}
 			_ = s.Send(m.Author.ID, "```起動処理中...```")
@@ -63,7 +63,7 @@ func (s *Service) newHandler() func(*discordgo.Session, *discordgo.MessageCreate
 		// インスタンス停止
 		case "stop":
 			if err := s.instance.Stop(); err != nil {
-				_ = s.Send(m.Author.ID, fmt.Sprintf(m.Author.ID, "```インスタンス停止処理失敗``````%+v```", err))
+				_ = s.Send(m.Author.ID, fmt.Sprintf("```インスタンス停止処理失敗``````%+v```", err))
 				s.log.Error(xerrors.Errorf("failed to stop instance: %w", err))
 			}
 			_ = s.Send(m.Author.ID, "```停止処理中...```")
@@ -72,13 +72,13 @@ func (s *Service) newHandler() func(*discordgo.Session, *discordgo.MessageCreate
 		case "status":
 			instanceStatus, err := s.instance.Status()
 			if err != nil {
-				_ = s.Send(m.Author.ID, fmt.Sprintf(m.Author.ID, "```インスタンス状態確認失敗``````%+v```", err))
+				_ = s.Send(m.Author.ID, fmt.Sprintf("```インスタンス状態確認失敗``````%+v```", err))
 				s.log.Error(xerrors.Errorf("failed to get instance: %w", err))
 			}
 			if instanceStatus.Status == entity.InstanceStatusRunning {
 				serverStatus, err := s.server.Status()
 				if err != nil {
-					_ = s.Send(m.Author.ID, fmt.Sprintf(m.Author.ID, "```サーバ状態確認失敗``````%+v```", err))
+					_ = s.Send(m.Author.ID, fmt.Sprintf("```サーバ状態確認失敗``````%+v```", err))
 					s.log.Error(xerrors.Errorf("failed to get server status: %w", err))
 				}
 
