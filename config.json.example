@@ -1,10 +1,16 @@
 {
-    "discord_token": "",
-    "discord_channel_id": "",
-    "discord_bot_id": "",
-    "gcp_credential_path": "",
-    "gcp_project_id": "",
-    "gcp_zone": "",
-    "gcp_instance_name": "",
-    "server_address": ""
+    "discord": {
+        "token": "",
+        "channel_id": "",
+        "bot_id": ""
+    },
+    "gcp": {
+        "credential_path": "",
+        "project": "",
+        "zone": "",
+        "instance": ""
+    },
+    "server":{
+        "address": ""
+    }
 }
