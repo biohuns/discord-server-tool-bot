@@ -9,12 +9,14 @@ import (
 	"github.com/biohuns/discord-servertool/service/config"
 	"github.com/biohuns/discord-servertool/service/discord"
 	"github.com/biohuns/discord-servertool/service/gcp"
+	"github.com/biohuns/discord-servertool/service/log"
 	"github.com/biohuns/discord-servertool/service/steam"
 	"github.com/google/wire"
 )
 
 var superSet = wire.NewSet(
 	config.ProvideService,
+	log.ProvideService,
 	cache.ProvideService,
 	gcp.ProvideService,
 	steam.ProvideService,
@@ -22,13 +24,19 @@ var superSet = wire.NewSet(
 	batch.ProvideService,
 )
 
-func initializeMessageService() (entity.MessageService, error) {
+func initLogService() (entity.LogService, error) {
 	wire.Build(superSet)
 
 	return nil, nil
 }
 
-func initializeBatchService() (entity.BatchService, error) {
+func initMessageService() (entity.MessageService, error) {
+	wire.Build(superSet)
+
+	return nil, nil
+}
+
+func initBatchService() (entity.BatchService, error) {
 	wire.Build(superSet)
 
 	return nil, nil

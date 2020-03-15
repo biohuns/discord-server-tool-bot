@@ -2,7 +2,6 @@ package gcp
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/biohuns/discord-servertool/entity"
@@ -10,65 +9,19 @@ import (
 	"google.golang.org/api/compute/v1"
 )
 
-type (
-	// Service GCPサービス
-	Service struct {
-		instance     *compute.InstancesService
-		projectID    string
-		zone         string
-		instanceName string
-	}
-
-	info struct {
-		Name   string
-		Status entity.InstanceStatus
-	}
-)
-
-var (
-	serviceInstance *Service
-	once            sync.Once
-)
-
-// ProvideService サービス返却
-func ProvideService(cs entity.ConfigService) (entity.InstanceService, error) {
-	var err error
-
-	once.Do(func() {
-		ctx := context.Background()
-		var svc *compute.Service
-		svc, err = compute.NewService(ctx)
-		if err != nil {
-			err = xerrors.Errorf("create service error: %w", err)
-			return
-		}
-
-		projectID, zone, instanceName := cs.GetGCPConfig()
-
-		serviceInstance = &Service{
-			instance:     compute.NewInstancesService(svc),
-			projectID:    projectID,
-			zone:         zone,
-			instanceName: instanceName,
-		}
-	})
-
-	if serviceInstance == nil {
-		err = xerrors.New("service is not provided")
-	}
-
-	if err != nil {
-		return nil, xerrors.Errorf("provide service error: %w", err)
-	}
-
-	return serviceInstance, nil
+// Service GCPサービス
+type Service struct {
+	s        *compute.InstancesService
+	project  string
+	zone     string
+	instance string
 }
 
 // Start インスタンス開始
 func (s *Service) Start() error {
-	_, err := s.instance.Start(s.projectID, s.zone, s.instanceName).Do()
+	_, err := s.s.Start(s.project, s.zone, s.instance).Do()
 	if err != nil {
-		return xerrors.Errorf("gcp error: %w", err)
+		return xerrors.Errorf("failed to start instance: %w", err)
 	}
 
 	return nil
@@ -76,55 +29,74 @@ func (s *Service) Start() error {
 
 // Stop インスタンス停止
 func (s *Service) Stop() error {
-	_, err := s.instance.Stop(s.projectID, s.zone, s.instanceName).Do()
+	_, err := s.s.Stop(s.project, s.zone, s.instance).Do()
 	if err != nil {
-		return xerrors.Errorf("gcp error: %w", err)
+		return xerrors.Errorf("failed to stop instance: %w", err)
 	}
 
 	return nil
 }
 
 // Status インスタンス状態確認
-func (s *Service) Status() (entity.InstanceInfo, error) {
-	i, err := s.instance.Get(s.projectID, s.zone, s.instanceName).Do()
+func (s *Service) Status() (*entity.InstanceInfo, error) {
+	i, err := s.s.Get(s.project, s.zone, s.instance).Do()
 	if err != nil {
-		return nil, xerrors.Errorf("gcp error: %w", err)
+		return nil, xerrors.Errorf("failed to get instance: %w", err)
 	}
 
-	info := &info{Name: i.Name}
+	info := &entity.InstanceInfo{Name: i.Name}
 
 	switch i.Status {
-	case "PROVISIONING":
-		info.Status = entity.StatusProvisioning
-	case "REPAIRING":
-		info.Status = entity.StatusRepairing
+	case "PROVISIONING", "STAGING":
+		info.Status = entity.InstanceStatusPending
 	case "RUNNING":
-		info.Status = entity.StatusRunning
-	case "STAGING":
-		info.Status = entity.StatusStaging
-	case "STOPPED":
-		info.Status = entity.StatusStopped
-	case "STOPPING":
-		info.Status = entity.StatusStopping
-	case "SUSPENDED":
-		info.Status = entity.StatusSuspended
-	case "SUSPENDING":
-		info.Status = entity.StatusSuspending
-	case "TERMINATED":
-		info.Status = entity.StatusTerminated
+		info.Status = entity.InstanceStatusRunning
+	case "STOPPING", "SUSPENDING":
+		info.Status = entity.InstanceStatusStopping
+	case "STOPPED", "SUSPENDED", "TERMINATED":
+		info.Status = entity.InstanceStatusStopped
 	default:
-		info.Status = entity.StatusUnknown
+		info.Status = entity.InstanceStatusUnknown
 	}
 
 	return info, nil
 }
 
-// GetStatus インスタンス状態テキスト取得
-func (s *info) GetStatus() entity.InstanceStatus {
-	return s.Status
-}
+var (
+	shared *Service
+	once   sync.Once
+)
 
-// GetStatus インスタンス状態テキスト取得
-func (s *info) GetFormattedStatus() string {
-	return fmt.Sprintf("%s: %s", s.Name, s.Status)
+// ProvideService サービス返却
+func ProvideService(conf entity.ConfigService) (entity.InstanceService, error) {
+	var err error
+
+	once.Do(func() {
+		ctx := context.Background()
+		var svc *compute.Service
+		svc, err = compute.NewService(ctx)
+		if err != nil {
+			err = xerrors.Errorf("failed to create service: %w", err)
+			return
+		}
+
+		projectID, zone, instanceName := conf.GetGCPConfig()
+
+		shared = &Service{
+			s:        compute.NewInstancesService(svc),
+			project:  projectID,
+			zone:     zone,
+			instance: instanceName,
+		}
+	})
+
+	if shared == nil {
+		err = xerrors.Errorf("service is not provided: %w", err)
+	}
+
+	if err != nil {
+		return nil, xerrors.Errorf("failed to provide service: %w", err)
+	}
+
+	return shared, nil
 }
