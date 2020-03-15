@@ -4,33 +4,47 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/biohuns/discord-servertool/logger"
 	"golang.org/x/xerrors"
 )
 
 func main() {
-	if err := listenStart(); err != nil {
-		logger.Error(fmt.Sprintf("%+v", err))
-		os.Exit(1)
+	log, err := initLogService()
+	if err != nil {
+		fmt.Printf("%+v\n", err)
 	}
 
-	exit := make(chan int, 1)
-	<-exit
+	if err := listenStart(); err != nil {
+		log.Error(err)
+		os.Exit(1)
+	}
+	log.Info("message listening...")
+
+	if err := batchStart(); err != nil {
+		log.Error(err)
+		os.Exit(1)
+	}
 }
 
 func listenStart() error {
-	ms, err := initializeMessageService()
+	message, err := initMessageService()
 	if err != nil {
-		return xerrors.Errorf("init service error: %w", err)
+		return xerrors.Errorf("failed to init message service: %w", err)
 	}
 
-	if err := ms.Start(); err != nil {
-		return xerrors.Errorf("listen error: %w", err)
+	if err := message.Start(); err != nil {
+		return xerrors.Errorf("failed to start message service: %w", err)
 	}
 
 	return nil
 }
 
 func batchStart() error {
-	panic("implement here")
+	batch, err := initBatchService()
+	if err != nil {
+		return xerrors.Errorf("failed to init batch service: %w", err)
+	}
+
+	batch.Start()
+
+	return nil
 }
