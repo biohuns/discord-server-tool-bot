@@ -82,17 +82,22 @@ func (s *Service) newHandler() func(*discordgo.Session, *discordgo.MessageCreate
 					s.log.Error(xerrors.Errorf("failed to get server status: %w", err))
 				}
 
-				_ = s.Send(m.Author.ID, util.StatusText(
+				_ = s.Send(m.Author.ID,
+					util.InstanceStatusText(
+						instanceStatus.Name,
+						instanceStatus.Status.String(),
+					)+util.ServerStatusText(
+						serverStatus.IsOnline,
+						serverStatus.GameName,
+						serverStatus.PlayerCount,
+						serverStatus.MaxPlayerCount,
+						serverStatus.Map,
+					))
+			} else {
+				_ = s.Send(m.Author.ID, util.InstanceStatusText(
 					instanceStatus.Name,
 					instanceStatus.Status.String(),
-					serverStatus.IsOnline,
-					serverStatus.GameName,
-					serverStatus.PlayerCount,
-					serverStatus.MaxPlayerCount,
-					serverStatus.Map,
 				))
-			} else {
-				_ = s.Send(m.Author.ID, util.InstanceStatusText(instanceStatus.Name, instanceStatus.Status.String()))
 			}
 
 		default:
