@@ -4,37 +4,40 @@ package entity
 type InstanceService interface {
 	Start() error
 	Stop() error
-	Status() (*InstanceInfo, error)
+	GetStatus() (*InstanceStatus, error)
+	GetAndCacheStatus() (*InstanceStatus, error)
+	GetCachedStatus() (*InstanceStatus, error)
 }
 
-// InstanceInfo インスタンス情報
-type InstanceInfo struct {
-	Name   string         `json:"name"`
-	Status InstanceStatus `json:"status"`
+// InstanceStatus インスタンスステータス
+type InstanceStatus struct {
+	Name            string             `json:"name"`
+	StatusCode      InstanceStatusCode `json:"status"`
+	IsStatusChanged bool               `json:"is_status_changed"`
 }
 
-// InstanceStatus インスタンス状態
-type InstanceStatus int
+// InstanceStatusCode インスタンスステータスコード
+type InstanceStatusCode int
 
 const (
-	InstanceStatusUnknown InstanceStatus = iota
+	InstanceStatusUnknown InstanceStatusCode = iota
 	InstanceStatusPending
 	InstanceStatusRunning
 	InstanceStatusStopping
 	InstanceStatusStopped
 )
 
-func (is InstanceStatus) String() string {
+func (is InstanceStatusCode) String() string {
 	switch is {
 	case InstanceStatusPending:
-		return "起動処理中"
+		return "Start Processing"
 	case InstanceStatusRunning:
-		return "起動"
+		return "Running"
 	case InstanceStatusStopping:
-		return "停止処理中"
+		return "Stop Processing"
 	case InstanceStatusStopped:
-		return "停止"
+		return "Stopped"
 	default:
-		return "不明"
+		return "Unknown"
 	}
 }

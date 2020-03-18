@@ -19,13 +19,13 @@ func main() {
 		log.Error(err)
 		os.Exit(1)
 	}
-	log.Info("message listening...")
+	log.Info("start listen")
 
 	if err := batchStart(); err != nil {
 		log.Error(err)
 		os.Exit(1)
 	}
-	log.Info("batch started")
+	log.Info("start batch")
 
 	code := <-exit
 	os.Exit(code)

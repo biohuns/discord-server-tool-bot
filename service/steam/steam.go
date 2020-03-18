@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/Ronny95/goseq"
-
+	"github.com/avast/retry-go"
 	"github.com/biohuns/discord-servertool/entity"
 	"golang.org/x/xerrors"
 )
@@ -19,24 +19,37 @@ type Service struct {
 	server goseq.Server
 }
 
-// Status サーバ状態取得
-func (s Service) Status() (*entity.ServerStatus, error) {
-	last := new(entity.ServerStatus)
+// GetStatus サーバステータスを取得する
+func (s *Service) GetStatus() (*entity.ServerStatus, error) {
+	current := new(entity.ServerStatus)
+
+	_ = retry.Do(
+		func() error {
+			current.CheckedAt = time.Now()
+
+			info, err := s.server.Info(timeout)
+			if err != nil {
+				return err
+			}
+
+			current.IsOnline = true
+			current.GameName = info.GetName()
+			current.PlayerCount = int(info.GetPlayers())
+			current.MaxPlayerCount = int(info.GetMaxPlayers())
+			current.Map = info.GetMap()
+
+			return nil
+		},
+		retry.Attempts(3),
+	)
+
 	v, err := s.cache.Get(entity.ServerStatusKey)
 	if err != nil {
-		last = nil
+		return current, nil
 	}
-	last, ok := v.(*entity.ServerStatus)
+
+	last, ok := v.(entity.ServerStatus)
 	if !ok {
-		last = nil
-	}
-
-	current := s.getCurrentStatus()
-
-	if last == nil {
-		if err := s.cache.Set(entity.ServerStatusKey, current); err != nil {
-			return nil, xerrors.Errorf("failed to set to cache: %w", err)
-		}
 		return current, nil
 	}
 
@@ -48,27 +61,36 @@ func (s Service) Status() (*entity.ServerStatus, error) {
 		current.NobodyTime = last.NobodyTime + current.CheckedAt.Sub(last.CheckedAt)
 	}
 
-	if err := s.cache.Set(entity.ServerStatusKey, current); err != nil {
-		return nil, xerrors.Errorf("failed to set to cache: %w", err)
-	}
-
 	return current, nil
 }
 
-func (s *Service) getCurrentStatus() *entity.ServerStatus {
-	status := &entity.ServerStatus{
-		CheckedAt: time.Now(),
+// CacheAndCacheStatus サーバステータスを取得しキャッシュに保存する
+func (s *Service) GetAndCacheStatus() (*entity.ServerStatus, error) {
+	status, err := s.GetStatus()
+	if err != nil {
+		return nil, xerrors.Errorf("failed to get server status: %w", err)
 	}
 
-	if info, err := s.server.Info(timeout); err == nil {
-		status.IsOnline = true
-		status.GameName = info.GetGame()
-		status.PlayerCount = int(info.GetPlayers())
-		status.MaxPlayerCount = int(info.GetMaxPlayers())
-		status.Map = info.GetMap()
+	if err := s.cache.Set(entity.ServerStatusKey, *status); err != nil {
+		return nil, xerrors.Errorf("failed to set to cache: %w", err)
 	}
 
-	return status
+	return status, nil
+}
+
+// GetCachedStatus キャッシュされたサーバーステータス取得
+func (s *Service) GetCachedStatus() (*entity.ServerStatus, error) {
+	v, err := s.cache.Get(entity.ServerStatusKey)
+	if err != nil {
+		return s.GetStatus()
+	}
+
+	status, ok := v.(entity.ServerStatus)
+	if !ok {
+		return s.GetStatus()
+	}
+
+	return &status, nil
 }
 
 var (
