@@ -130,7 +130,7 @@ var (
 // ProvideService サービス返却
 func ProvideService(
 	log entity.LogService,
-	cache entity.ConfigService,
+	conf entity.ConfigService,
 	instance entity.InstanceService,
 	server entity.ServerStatusService,
 ) (entity.MessageService, error) {
@@ -144,25 +144,24 @@ func ProvideService(
 			return
 		}
 
-		token, channelID, botID := cache.GetDiscordConfig()
-		session.Token = fmt.Sprintf("Bot %s", token)
+		session.Token = fmt.Sprintf("Bot %s", conf.Config().Discord.Token)
 
 		shared = &Service{
 			log:       log,
 			instance:  instance,
 			server:    server,
 			session:   session,
-			channelID: channelID,
-			botID:     botID,
+			channelID: conf.Config().Discord.ChannelID,
+			botID:     conf.Config().Discord.BotID,
 		}
 	})
 
-	if shared == nil {
-		err = xerrors.Errorf("service is not provided: %w", err)
-	}
-
 	if err != nil {
 		return nil, xerrors.Errorf("failed to provide service: %w", err)
+	}
+
+	if shared == nil {
+		return nil, xerrors.New("service is not provided")
 	}
 
 	return shared, nil

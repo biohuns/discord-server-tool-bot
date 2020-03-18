@@ -50,18 +50,12 @@ var (
 
 // ProvideService サービス返却
 func ProvideService() (entity.LogService, error) {
-	var err error
-
 	once.Do(func() {
 		shared = new(Service)
 	})
 
 	if shared == nil {
-		err = xerrors.Errorf("service is not provided: %w", err)
-	}
-
-	if err != nil {
-		return nil, xerrors.Errorf("failed to provide service: %w", err)
+		return nil, xerrors.New("service is not provided")
 	}
 
 	return shared, nil

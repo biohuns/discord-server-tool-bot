@@ -80,22 +80,20 @@ func ProvideService(conf entity.ConfigService) (entity.InstanceService, error) {
 			return
 		}
 
-		projectID, zone, instanceName := conf.GetGCPConfig()
-
 		shared = &Service{
 			s:        compute.NewInstancesService(svc),
-			project:  projectID,
-			zone:     zone,
-			instance: instanceName,
+			project:  conf.Config().GCP.Project,
+			zone:     conf.Config().GCP.Zone,
+			instance: conf.Config().GCP.Instance,
 		}
 	})
 
-	if shared == nil {
-		err = xerrors.Errorf("service is not provided: %w", err)
-	}
-
 	if err != nil {
 		return nil, xerrors.Errorf("failed to provide service: %w", err)
+	}
+
+	if shared == nil {
+		return nil, xerrors.New("service is not provided")
 	}
 
 	return shared, nil
