@@ -11,6 +11,7 @@ import (
 
 // Service GCPサービス
 type Service struct {
+	cache    entity.CacheService
 	s        *compute.InstancesService
 	project  string
 	zone     string
@@ -37,29 +38,64 @@ func (s *Service) Stop() error {
 	return nil
 }
 
-// Status インスタンス状態確認
-func (s *Service) Status() (*entity.InstanceInfo, error) {
+// GetStatus インスタンスステータスを取得する
+func (s *Service) GetStatus() (*entity.InstanceStatus, error) {
 	i, err := s.s.Get(s.project, s.zone, s.instance).Do()
 	if err != nil {
-		return nil, xerrors.Errorf("failed to get instance: %w", err)
+		return nil, xerrors.Errorf("failed to get instance status: %w", err)
 	}
 
-	info := &entity.InstanceInfo{Name: i.Name}
+	status := entity.InstanceStatus{Name: i.Name}
 
 	switch i.Status {
 	case "PROVISIONING", "STAGING":
-		info.Status = entity.InstanceStatusPending
+		status.StatusCode = entity.InstanceStatusPending
 	case "RUNNING":
-		info.Status = entity.InstanceStatusRunning
+		status.StatusCode = entity.InstanceStatusRunning
 	case "STOPPING", "SUSPENDING":
-		info.Status = entity.InstanceStatusStopping
+		status.StatusCode = entity.InstanceStatusStopping
 	case "STOPPED", "SUSPENDED", "TERMINATED":
-		info.Status = entity.InstanceStatusStopped
+		status.StatusCode = entity.InstanceStatusStopped
 	default:
-		info.Status = entity.InstanceStatusUnknown
+		status.StatusCode = entity.InstanceStatusUnknown
 	}
 
-	return info, nil
+	if v, err := s.cache.Get(entity.InstanceStatusKey); err == nil {
+		if last, ok := v.(entity.InstanceStatus); ok && last.StatusCode != status.StatusCode {
+			status.IsStatusChanged = true
+		}
+	}
+
+	return &status, nil
+}
+
+// GetAndCacheStatus インスタンスステータスを取得しキャッシュに保存する
+func (s *Service) GetAndCacheStatus() (*entity.InstanceStatus, error) {
+	status, err := s.GetStatus()
+	if err != nil {
+		return nil, xerrors.Errorf("failed to get instance status: %w", err)
+	}
+
+	if err := s.cache.Set(entity.InstanceStatusKey, *status); err != nil {
+		return nil, xerrors.Errorf("failed to set to cache: %w", err)
+	}
+
+	return status, nil
+}
+
+// GetCachedStatus キャッシュされたインスタンスステータスを取得する
+func (s *Service) GetCachedStatus() (*entity.InstanceStatus, error) {
+	v, err := s.cache.Get(entity.InstanceStatusKey)
+	if err != nil {
+		return s.GetStatus()
+	}
+
+	status, ok := v.(entity.InstanceStatus)
+	if !ok {
+		return s.GetStatus()
+	}
+
+	return &status, nil
 }
 
 var (
@@ -68,7 +104,7 @@ var (
 )
 
 // ProvideService サービス返却
-func ProvideService(conf entity.ConfigService) (entity.InstanceService, error) {
+func ProvideService(conf entity.ConfigService, cache entity.CacheService) (entity.InstanceService, error) {
 	var err error
 
 	once.Do(func() {
@@ -81,6 +117,7 @@ func ProvideService(conf entity.ConfigService) (entity.InstanceService, error) {
 		}
 
 		shared = &Service{
+			cache:    cache,
 			s:        compute.NewInstancesService(svc),
 			project:  conf.Config().GCP.Project,
 			zone:     conf.Config().GCP.Zone,

@@ -13,7 +13,7 @@ type Service struct {
 }
 
 // Get キャッシュから取り出す
-func (s Service) Get(key entity.CacheKey) (interface{}, error) {
+func (s *Service) Get(key entity.CacheKey) (interface{}, error) {
 	value, ok := s.s.Load(key)
 	if !ok {
 		return nil, xerrors.New("specified key cannot be found")
@@ -23,13 +23,13 @@ func (s Service) Get(key entity.CacheKey) (interface{}, error) {
 }
 
 // Set キャッシュに保存
-func (s Service) Set(key entity.CacheKey, value interface{}) error {
+func (s *Service) Set(key entity.CacheKey, value interface{}) error {
 	s.s.Store(key, value)
 	return nil
 }
 
 // Dump キャッシュをダンプする
-func (s Service) Dump() entity.CacheDumpList {
+func (s *Service) Dump() entity.CacheDumpList {
 	list := make(entity.CacheDumpList, 0)
 	s.s.Range(func(key, value interface{}) bool {
 		k := key.(entity.CacheKey)

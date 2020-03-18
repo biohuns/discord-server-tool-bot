@@ -31,6 +31,6 @@ type CacheDumpList []*CacheDump
 
 // CacheDumpElement キャッシュダンプデータ
 type CacheDump struct {
-	Key   CacheKey
-	Value interface{}
+	Key   CacheKey    `json:"key"`
+	Value interface{} `json:"value"`
 }

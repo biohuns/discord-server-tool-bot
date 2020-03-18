@@ -13,15 +13,15 @@ import (
 // Service ログサービス
 type Service struct{}
 
-func (s Service) Info(v interface{}) {
+func (s *Service) Info(v interface{}) {
 	flush(entity.LogLevelInfo, v)
 }
 
-func (s Service) Warn(v interface{}) {
+func (s *Service) Warn(v interface{}) {
 	flush(entity.LogLevelWarn, v)
 }
 
-func (s Service) Error(v interface{}) {
+func (s *Service) Error(v interface{}) {
 	flush(entity.LogLevelError, v)
 }
 
