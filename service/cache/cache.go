@@ -50,18 +50,12 @@ var (
 
 // ProvideService サービス返却
 func ProvideService() (entity.CacheService, error) {
-	var err error
-
 	once.Do(func() {
 		shared = &Service{s: new(sync.Map)}
 	})
 
 	if shared == nil {
-		return nil, xerrors.Errorf("service is not provided: %w", err)
-	}
-
-	if err != nil {
-		return nil, xerrors.Errorf("failed to provide service: %w", err)
+		return nil, xerrors.New("service is not provided")
 	}
 
 	return shared, nil

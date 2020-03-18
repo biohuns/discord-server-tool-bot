@@ -2,6 +2,7 @@ package util
 
 import "fmt"
 
+// ServerStatusText サーバーステータスのテキスト形式
 func ServerStatusText(
 	isOnline bool,
 	gameName string,
@@ -25,6 +26,7 @@ func ServerStatusText(
 	)
 }
 
-func InstanceStatusText(instanceName, instanceStatus string) string {
-	return fmt.Sprintf("```<%s: %s>```", instanceName, instanceStatus)
+// InstanceStatusText インスタンスステータスのテキスト形式
+func InstanceStatusText(name, status string) string {
+	return fmt.Sprintf("```<%s: %s>```", name, status)
 }

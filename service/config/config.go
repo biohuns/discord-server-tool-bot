@@ -18,28 +18,12 @@ type Service struct {
 	c *entity.Config
 }
 
-// GetDiscordConfig Discordの設定を取得
-func (s *Service) GetDiscordConfig() (token, channelID, botID string) {
+// Config 設定を返却する
+func (s *Service) Config() entity.Config {
 	if s.c == nil {
-		return "", "", ""
+		return entity.Config{}
 	}
-	return s.c.Discord.Token, s.c.Discord.ChannelID, s.c.Discord.BotID
-}
-
-// GetGCPConfig GCPの設定を取得
-func (s *Service) GetGCPConfig() (project, zone, instance string) {
-	if s.c == nil {
-		return "", "", ""
-	}
-	return s.c.GCP.Project, s.c.GCP.Zone, s.c.GCP.Instance
-}
-
-// GetServerConfig サーバの設定を取得
-func (s *Service) GetServerConfig() (address string) {
-	if s.c == nil {
-		return ""
-	}
-	return s.c.Server.Address
+	return *s.c
 }
 
 var (
@@ -68,6 +52,11 @@ func ProvideService() (entity.ConfigService, error) {
 			return
 		}
 
+		if err = c.Validate(); err != nil {
+			err = xerrors.Errorf("invalid config: %w", err)
+			return
+		}
+
 		if os.Getenv(googleCredentialKey) == "" {
 			if err = os.Setenv(googleCredentialKey, c.GCP.CredentialPath); err != nil {
 				err = xerrors.Errorf("failed to set google application credentials: %w", err)
@@ -78,12 +67,12 @@ func ProvideService() (entity.ConfigService, error) {
 		shared = &Service{c: c}
 	})
 
-	if shared == nil {
-		err = xerrors.Errorf("service is not provided: %w", err)
-	}
-
 	if err != nil {
 		return nil, xerrors.Errorf("failed to provide service: %w", err)
+	}
+
+	if shared == nil {
+		return nil, xerrors.New("service is not provided")
 	}
 
 	return shared, nil

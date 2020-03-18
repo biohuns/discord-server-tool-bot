@@ -7,6 +7,8 @@ import (
 	"golang.org/x/xerrors"
 )
 
+var exit = make(chan int)
+
 func main() {
 	log, err := initLogService()
 	if err != nil {
@@ -23,6 +25,10 @@ func main() {
 		log.Error(err)
 		os.Exit(1)
 	}
+	log.Info("batch started")
+
+	code := <-exit
+	os.Exit(code)
 }
 
 func listenStart() error {
@@ -44,7 +50,7 @@ func batchStart() error {
 		return xerrors.Errorf("failed to init batch service: %w", err)
 	}
 
-	batch.Start()
+	go batch.Start()
 
 	return nil
 }

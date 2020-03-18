@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	interval        = 1 * time.Minute
-	warningMinutes  = 5 * time.Minute
-	shutdownMinutes = 10 * time.Minute
+	interval        = 30 * time.Second
+	warningMinutes  = 10 * time.Minute
+	shutdownMinutes = 20 * time.Minute
 )
 
 // BatchService バッチサービス

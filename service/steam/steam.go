@@ -1,6 +1,7 @@
 package steam
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -76,14 +77,16 @@ var (
 )
 
 // ProvideService サービス返却
-func ProvideService(config entity.ConfigService, cache entity.CacheService) (entity.ServerStatusService, error) {
+func ProvideService(conf entity.ConfigService, cache entity.CacheService) (entity.ServerStatusService, error) {
 	var err error
 
 	once.Do(func() {
-		address := config.GetServerConfig()
-
 		server := goseq.NewServer()
-		if err := server.SetAddress(address); err != nil {
+		if err = server.SetAddress(fmt.Sprintf(
+			"%s:%d",
+			conf.Config().SteamDedicatedServer.Address,
+			conf.Config().SteamDedicatedServer.Port,
+		)); err != nil {
 			err = xerrors.Errorf("failed to set address: %w", err)
 			return
 		}
@@ -94,12 +97,12 @@ func ProvideService(config entity.ConfigService, cache entity.CacheService) (ent
 		}
 	})
 
-	if shared == nil {
-		err = xerrors.Errorf("service is not provided: %w", err)
-	}
-
 	if err != nil {
 		return nil, xerrors.Errorf("failed to provide service: %w", err)
+	}
+
+	if shared == nil {
+		return nil, xerrors.New("service is not provided")
 	}
 
 	return shared, nil

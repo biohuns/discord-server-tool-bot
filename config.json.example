@@ -10,7 +10,8 @@
         "zone": "",
         "instance": ""
     },
-    "server":{
-        "address": ""
+    "steam_dedicated_server":{
+        "address": "",
+        "port": 0
     }
 }
