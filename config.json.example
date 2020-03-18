@@ -1,17 +1,17 @@
 {
-    "discord": {
-        "token": "",
-        "channel_id": "",
-        "bot_id": ""
-    },
-    "gcp": {
-        "credential_path": "",
-        "project": "",
-        "zone": "",
-        "instance": ""
-    },
-    "steam_dedicated_server":{
-        "address": "",
-        "port": 0
-    }
+  "discord": {
+    "token": "",
+    "channel_id": "",
+    "bot_id": ""
+  },
+  "gcp": {
+    "credential_path": "",
+    "project": "",
+    "zone": "",
+    "instance": ""
+  },
+  "steam_dedicated_server":{
+    "address": "",
+    "port": 0
+  }
 }
