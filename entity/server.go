@@ -4,7 +4,9 @@ import "time"
 
 // ServerStatusService サーバーステータスサービス
 type ServerStatusService interface {
-	Status() (*ServerStatus, error)
+	GetStatus() (*ServerStatus, error)
+	GetAndCacheStatus() (*ServerStatus, error)
+	GetCachedStatus() (*ServerStatus, error)
 }
 
 // ServerStatus サーバーステータス
@@ -15,7 +17,7 @@ type ServerStatus struct {
 	MaxPlayerCount  int           `json:"max_player_count"`
 	Map             string        `json:"map"`
 	CheckedAt       time.Time     `json:"checked_at"`
-	IsStatusChanged bool          `json:"is_online_changed"`
+	IsStatusChanged bool          `json:"is_status_changed"`
 	NobodyTime      time.Duration `json:"nobody_time"`
 }
 

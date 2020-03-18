@@ -5,87 +5,107 @@ import (
 	"sync"
 	"time"
 
-	"github.com/biohuns/discord-servertool/util"
-
 	"github.com/biohuns/discord-servertool/entity"
+	"github.com/biohuns/discord-servertool/util"
 	"golang.org/x/xerrors"
 )
 
 const (
-	interval        = 30 * time.Second
-	warningMinutes  = 10 * time.Minute
-	shutdownMinutes = 20 * time.Minute
+	checkInstanceStatusInterval = 30 * time.Second
+	checkServerStatusInterval   = 1 * time.Minute
+	warningMinutes              = 10 * time.Minute
+	shutdownMinutes             = 20 * time.Minute
 )
 
 // BatchService バッチサービス
 type Service struct {
 	log      entity.LogService
-	cache    entity.CacheService
 	instance entity.InstanceService
-	message  entity.MessageService
 	server   entity.ServerStatusService
+	message  entity.MessageService
 }
 
-func (s Service) Start() {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
+// Start バッチ処理を開始
+func (s *Service) Start() {
+	isTicker := time.NewTicker(checkInstanceStatusInterval)
+	defer isTicker.Stop()
+
+	ssTicker := time.NewTicker(checkServerStatusInterval)
+	defer ssTicker.Stop()
+
 	for {
 		select {
-		case <-ticker.C:
-			start := time.Now()
-			if err := s.checkServerStatus(); err != nil {
-				s.log.Error(xerrors.Errorf("failed to check server status: %w", err))
-			}
-			s.log.Info(
-				fmt.Sprintf("finish batch (%s)", time.Now().Sub(start)),
-			)
+		case <-isTicker.C:
+			go s.checkInstanceStatus()
+		case <-ssTicker.C:
+			go s.checkServerStatus()
 		}
 	}
 }
 
-func (s Service) checkServerStatus() error {
-	serverStatus, err := s.server.Status()
+func (s *Service) checkInstanceStatus() {
+	start := time.Now()
+	defer func() {
+		s.log.Info(fmt.Sprintf("finish instance status batch (in %s)", time.Now().Sub(start)))
+	}()
+
+	status, err := s.instance.GetAndCacheStatus()
 	if err != nil {
-		return xerrors.Errorf("failed to check instance status: %w", err)
+		s.log.Error(xerrors.Errorf("failed to check instance status: %w", err))
+		return
 	}
 
-	// サーバー状態変更検知
+	if status.IsStatusChanged {
+		_ = s.message.Send("", util.InstanceStatusText(status.Name, status.StatusCode.String()))
+	}
+}
 
-	if serverStatus.IsStatusChanged {
+func (s *Service) checkServerStatus() {
+	start := time.Now()
+	defer func() {
+		s.log.Info(fmt.Sprintf("finish server status batch (in %s)", time.Now().Sub(start)))
+	}()
+
+	status, err := s.server.GetAndCacheStatus()
+	if err != nil {
+		s.log.Error(xerrors.Errorf("failed to check server status: %w", err))
+		return
+	}
+
+	// サーバーステータス変更検知
+	if status.IsStatusChanged {
 		_ = s.message.Send("", util.ServerStatusText(
-			serverStatus.IsOnline,
-			serverStatus.GameName,
-			serverStatus.PlayerCount,
-			serverStatus.MaxPlayerCount,
-			serverStatus.Map,
+			status.IsOnline,
+			status.GameName,
+			status.PlayerCount,
+			status.MaxPlayerCount,
+			status.Map,
 		))
 	}
 
 	// 起動した状態での放置防止
-
-	if !serverStatus.IsNobody() || serverStatus.NobodyTime < warningMinutes {
-		return nil
+	if !status.IsNobody() || status.NobodyTime < warningMinutes {
+		return
 	}
 
-	if serverStatus.NobodyTime < shutdownMinutes {
-		leftTime := shutdownMinutes - serverStatus.NobodyTime
+	if status.NobodyTime < shutdownMinutes {
+		leftTime := shutdownMinutes - status.NobodyTime
 		_ = s.message.Send("",
-			fmt.Sprintf("```[%s]\n自動停止まで: %dm%ds```",
-				serverStatus.GameName,
+			fmt.Sprintf("```[%s]\nAuto Stop Instance (In %dm%ds)```",
+				status.GameName,
 				int(leftTime.Minutes()),
 				int(leftTime.Seconds())-60*int(leftTime.Minutes()),
 			),
 		)
-		return nil
+		return
 	}
 
-	_ = s.message.Send("", fmt.Sprintf("```[%s]\n自動停止中...```", serverStatus.GameName))
+	_ = s.message.Send("", fmt.Sprintf("```[%s]\nStopping Instance Automatically...```", status.GameName))
 
 	if err := s.instance.Stop(); err != nil {
-		return xerrors.Errorf("failed to stop instance: %w", err)
+		s.log.Error(xerrors.Errorf("failed to stop instance: %w", err))
+		return
 	}
-
-	return nil
 }
 
 var (
@@ -96,18 +116,16 @@ var (
 // NewService サービス返却
 func ProvideService(
 	log entity.LogService,
-	cache entity.CacheService,
 	instance entity.InstanceService,
-	message entity.MessageService,
 	server entity.ServerStatusService,
+	message entity.MessageService,
 ) (entity.BatchService, error) {
 	once.Do(func() {
 		shared = &Service{
 			log:      log,
-			cache:    cache,
 			instance: instance,
-			message:  message,
 			server:   server,
+			message:  message,
 		}
 	})
 

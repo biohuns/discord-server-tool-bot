@@ -36,11 +36,11 @@ func initMessageService() (entity.MessageService, error) {
 	if err != nil {
 		return nil, err
 	}
-	instanceService, err := gcp.ProvideService(configService)
+	cacheService, err := cache.ProvideService()
 	if err != nil {
 		return nil, err
 	}
-	cacheService, err := cache.ProvideService()
+	instanceService, err := gcp.ProvideService(configService, cacheService)
 	if err != nil {
 		return nil, err
 	}
@@ -60,15 +60,15 @@ func initBatchService() (entity.BatchService, error) {
 	if err != nil {
 		return nil, err
 	}
-	cacheService, err := cache.ProvideService()
-	if err != nil {
-		return nil, err
-	}
 	configService, err := config.ProvideService()
 	if err != nil {
 		return nil, err
 	}
-	instanceService, err := gcp.ProvideService(configService)
+	cacheService, err := cache.ProvideService()
+	if err != nil {
+		return nil, err
+	}
+	instanceService, err := gcp.ProvideService(configService, cacheService)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func initBatchService() (entity.BatchService, error) {
 	if err != nil {
 		return nil, err
 	}
-	batchService, err := batch.ProvideService(logService, cacheService, instanceService, messageService, serverStatusService)
+	batchService, err := batch.ProvideService(logService, instanceService, serverStatusService, messageService)
 	if err != nil {
 		return nil, err
 	}
