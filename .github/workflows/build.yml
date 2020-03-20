@@ -1,4 +1,4 @@
-name: Build
+name: Build and Deploy
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
 jobs:
 
   build:
-    name: Build
+    name: Build and Deploy RPM Package
     runs-on: ubuntu-latest
     env:
       APP: discord-servertool
@@ -24,9 +24,9 @@ jobs:
       - name: Check out
         uses: actions/checkout@v1
 
-      - name: Get version
-        id: get_version
-        run: echo ::set-output name=VERSION::$(echo $GITHUB_REF | cut -d'/' -f3)
+      - name: Get latest tag
+        id: tag
+        run: echo ::set-output name=VERSION::$(git describe --tags --abbrev=0)
 
       - name: Build binary
         run: |
@@ -41,28 +41,31 @@ jobs:
 
       - name: Archive source
         run: |
-          mkdir -p ${{ env.APP }}-${{ steps.get_version.outputs.VERSION }} SOURCES
+          mkdir -p ${{ env.APP }}-${{ steps.tag.outputs.VERSION }} SOURCES
           cp ${{ env.APP }} \
             config.json \
             credential.json \
             systemd.service \
-            ${{ env.APP }}-${{ steps.get_version.outputs.VERSION }}/
+            ${{ env.APP }}-${{ steps.tag.outputs.VERSION }}/
           tar czf \
-            SOURCES/${{ env.APP }}-${{ steps.get_version.outputs.VERSION }}.tar.gz \
-            ${{ env.APP }}-${{ steps.get_version.outputs.VERSION }}/
+            SOURCES/${{ env.APP }}-${{ steps.tag.outputs.VERSION }}.tar.gz \
+            ${{ env.APP }}-${{ steps.tag.outputs.VERSION }}/
 
       - name: Build RPM
         uses: ./.github/actions/rpmbuild
+        env:
+          VERSION: ${{ steps.tag.outputs.VERSION }}
 
       - name: Install SSH key
-        uses: shimataro/ssh-key-action@v2
+        uses: shimataro/ssh-key-action@v2.0.1
         with:
-          key: ${{ secrets.SSH_KEY }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           known_hosts: ${{ secrets.KNOWN_HOSTS }}
           config: ${{ secrets.SSH_CONFIG }}
 
-      - name: Deploy
+      - name: Deploy RPM
+        env:
+          RPM: ${{ env.APP }}-${{ steps.tag.outputs.VERSION }}-${{ github.run_number }}.el7.x86_64.rpm
         run: |
-          FILENAME=./RPMS/x86_64/${{ env.APP }}-${{ steps.get_version.outputs.VERSION }}-1.el7.x86_64.rpm
-          scp ./RPMS/x86_64/$FILENAME remote:/var/tmp/$FILENAME
-          ssh remote "sudo yum install /var/tmp/$FILENAME"
+          scp ./RPMS/x86_64/$RPM remote:/var/tmp/$RPM
+          ssh remote "sudo yum install -y /var/tmp/$RPM"
