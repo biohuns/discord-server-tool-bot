@@ -54,4 +54,15 @@ jobs:
       - name: Build RPM
         uses: ./.github/actions/rpmbuild
 
-      # TODO SSH Deploy
+      - name: Install SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSH_KEY }}
+          known_hosts: ${{ secrets.KNOWN_HOSTS }}
+          config: ${{ secrets.SSH_CONFIG }}
+
+      - name: Deploy
+        run: |
+          FILENAME=./RPMS/x86_64/${{ env.APP }}-${{ steps.get_version.outputs.VERSION }}-1.el7.x86_64.rpm
+          scp ./RPMS/x86_64/$FILENAME remote:/var/tmp/$FILENAME
+          ssh remote "sudo yum install /var/tmp/$FILENAME"
