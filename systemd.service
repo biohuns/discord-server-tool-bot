@@ -1,0 +1,12 @@
+[Unit]
+Description = ServerTool for Discord
+
+[Service]
+Type = simple
+ExecStart = /usr/bin/discord-servertool -config=/etc/discord-servertool/config.json
+ExecStop = /bin/kill -HUP $MAINPID
+ExecReload = /bin/kill -HUP $MAINPID && /usr/local/bin/discord-servertool
+Restart = always
+
+[Install]
+WantedBy = multi-user.target
