@@ -49,7 +49,7 @@ jobs:
             ${{ env.APP }}-${{ steps.tag.outputs.VERSION }}/
           tar czf \
             SOURCES/${{ env.APP }}-${{ steps.tag.outputs.VERSION }}.tar.gz \
-            ${{ env.APP }}-${{ steps.tag.outputs.VERSION }}/
+            ${{ env.APP }}-${{ steps.tag.outputs.VERSION }}
 
       - name: Build RPM
         uses: ./.github/actions/rpmbuild
