@@ -10,7 +10,7 @@ on:
 jobs:
 
   build:
-    name: Build and Deploy RPM Package
+    name: Build and Deploy RPM
     runs-on: ubuntu-latest
     env:
       APP: discord-servertool
@@ -34,10 +34,10 @@ jobs:
           make build
 
       - name: Create config.json
-        run: echo '${{ secrets.CONFIG }}' > config.json
+        run: echo '${{ secrets.CONFIG }}' | jq . > config.json
 
       - name: Create credential.json
-        run: echo '${{ secrets.CREDENTIAL }}' > credential.json
+        run: echo '${{ secrets.CREDENTIAL }}' | jq . > credential.json
 
       - name: Archive source
         run: |
@@ -55,6 +55,7 @@ jobs:
         uses: ./.github/actions/rpmbuild
         env:
           VERSION: ${{ steps.tag.outputs.VERSION }}
+          RELEASE: ${{ github.run_number }}
 
       - name: Install SSH key
         uses: shimataro/ssh-key-action@v2.0.1
