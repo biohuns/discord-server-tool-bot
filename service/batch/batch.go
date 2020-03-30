@@ -13,8 +13,7 @@ import (
 const (
 	checkInstanceStatusInterval = 30 * time.Second
 	checkServerStatusInterval   = 1 * time.Minute
-	warningMinutes              = 10 * time.Minute
-	shutdownMinutes             = 20 * time.Minute
+	shutdownMinutes             = 10 * time.Minute
 )
 
 // BatchService バッチサービス
@@ -84,27 +83,12 @@ func (s *Service) checkServerStatus() {
 	}
 
 	// 起動した状態での放置防止
-	if !status.IsNobody() || status.NobodyTime < warningMinutes {
-		return
-	}
-
-	if status.NobodyTime < shutdownMinutes {
-		leftTime := shutdownMinutes - status.NobodyTime
-		_ = s.message.Send("",
-			fmt.Sprintf("```[%s]\nAuto Stop Instance (In %dm%ds)```",
-				status.GameName,
-				int(leftTime.Minutes()),
-				int(leftTime.Seconds())-60*int(leftTime.Minutes()),
-			),
-		)
-		return
-	}
-
-	_ = s.message.Send("", fmt.Sprintf("```[%s]\nStopping Instance Automatically...```", status.GameName))
-
-	if err := s.instance.Stop(); err != nil {
-		s.log.Error(xerrors.Errorf("failed to stop instance: %w", err))
-		return
+	if status.IsNobody() && shutdownMinutes <= status.NobodyTime {
+		_ = s.message.Send("", fmt.Sprintf("```[%s]\nStopping Instance Automatically...```", status.GameName))
+		if err := s.instance.Stop(); err != nil {
+			s.log.Error(xerrors.Errorf("failed to stop instance: %w", err))
+			return
+		}
 	}
 }
 
