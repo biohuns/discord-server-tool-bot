@@ -17,6 +17,10 @@ import (
 	"github.com/google/wire"
 )
 
+import (
+	_ "net/http/pprof"
+)
+
 // Injectors from injector.go:
 
 func initLogService() (entity.LogService, error) {

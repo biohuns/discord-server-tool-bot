@@ -2,14 +2,20 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 
 	"golang.org/x/xerrors"
+	_ "net/http/pprof"
 )
 
 var exit = make(chan int)
 
 func main() {
+	go func() {
+		_ = http.ListenAndServe(":6060", nil)
+	}()
+
 	log, err := initLogService()
 	if err != nil {
 		fmt.Printf("%+v\n", err)
